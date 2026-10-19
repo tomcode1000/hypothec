@@ -1,0 +1,281 @@
+HYPOTHEC - THE GUARDIANS
+========================
+What the guardians (the code calls them "referees") are, how a loan's vault is made,
+exactly what they check before they sign, what they refuse, how their log works, and
+what they cannot do.
+
+Written:   10 Oct 2026
+Applies to: the build in this folder (services/, usdc/, core/, web/).
+Related:   BRIEF.txt sections 4-5, docs/DECISIONS.md (D2, D4, D5, D8, D11, D12, D13)
+
+
+------------------------------------------------------------------------
+1. WHAT A GUARDIAN IS
+------------------------------------------------------------------------
+- Every loan has a shielded Zcash vault held by FOUR keys: the borrower, the
+  lender (the desk) and two guardians. Any 3 of the 4 keys can move it.
+- A guardian is an independent operator company from the Hypothec operator list. It
+  runs the Hypothec rules software, which holds the guardian's one key share and signs
+  automatically, only when the published rules allow, and logs why.
+- A guardian is NOT a person reading cases. Nobody at the operator clicks "approve".
+  The rules are code; the operator's job is to run the service honestly, keep its key
+  share safe, and be independent of the desk and the borrower.
+- The borrower sees both guardians, with their addresses, before locking any ZEC, and
+  agrees to them when it accepts the loan (D2). The acceptance is signed on Base and in
+  the loanbook.
+- In this build there are two operators, Guardian A and Guardian B, and the Hypothec
+  team runs both (BRIEF section 7). The screens say so.
+
+Who can move the vault (D4, 3 of 4):
+  Borrower + both guardians      release after repayment
+  Desk + both guardians          liquidation (price crash or deadline)
+  Borrower + desk + one guardian cooperative close (e.g. a guardian is offline)
+  Both guardians alone           CANNOT (2 of 4)
+  Desk + one guardian            CANNOT (2 of 4)
+So taking ZEC without the rules being met needs BOTH independent operators plus one
+of the two parties to collude.
+
+
+------------------------------------------------------------------------
+2. HOW THE VAULT IS MADE (ALL FOUR TOGETHER)
+------------------------------------------------------------------------
+It happens right after the borrower accepts. Each party runs its own party service
+(core/: hypothec-party), which holds only that party's share. They talk through an
+encrypted relay that holds no keys and cannot spend.
+
+  1. The borrower's app opens a vault: "3 of 4", and gets an invite.
+  2. Desk A's agent joins with the invite.
+  3. Guardian A's service joins.
+  4. Guardian B's service joins.
+  5. The borrower seals the membership. All four compute a SAFETY NUMBER from the
+     member list; it must be identical on all four. A different number means someone
+     else is in the setup, and the setup stops.
+  6. Key generation (FROST DKG): each party makes ITS OWN share of one key. The whole
+     key is never assembled anywhere, not on any device, not at Hypothec, not ever.
+  7. All four derive the same vault address. If any differs, the setup stops.
+
+Each stage is written to the loan's log (vault-open, vault-join x3, safety-number,
+vault) and shown live on My loan, in the "Making the vault" step.
+
+In the demo all four services run on one machine (e2e/stack.sh). In the product the
+desk's agent and the guardians' services are always-online servers; the borrower's
+part runs in its app.
+
+
+------------------------------------------------------------------------
+3. WHAT A GUARDIAN WATCHES
+------------------------------------------------------------------------
+Every 3 seconds each guardian reads, for every loan it is named on:
+  - the LOANBOOK: the lender's signed offer and the borrower's signed acceptance
+    (terms, collateral, levels, both ZEC payout addresses), and the vault address;
+  - the LOAN CONTRACT on Base Sepolia: status, repaid amount, deadline;
+  - the VAULT, through ITS OWN party service and the vault's viewing key: address,
+    3-of-4, balance (total and confirmed), and any spend proposed in it;
+  - the PRICE FEED (section 7), only when a liquidation is proposed.
+It never takes the desk's or the borrower's word for anything it can read itself.
+
+Before acting on any loan it checks both signatures:
+  - the offer is signed by the lender's Base address named in it;
+  - the acceptance is signed by the borrower's Base address and refers to this exact
+    offer (a digest of it).
+If either fails it refuses the loan entirely and logs "lender or borrower signature
+does not hold". This is what makes the loanbook tamper-proof: whoever runs it cannot
+change terms or swap a payout address without breaking a signature.
+
+
+------------------------------------------------------------------------
+4. STAGE 1 - BEFORE THE BORROWER IS PAID (LOCK)
+------------------------------------------------------------------------
+When: the desk has funded the contract (status Funded). The USDC sits in the
+contract, not with the borrower.
+
+The guardian checks, all must hold:
+  [ ] it is the vault all four made (its own view = the loanbook's vault address)
+  [ ] the vault is 3 of 4
+  [ ] the desk funded the contract (status Funded)
+  [ ] the full collateral is in the vault (balance >= the collateral in the offer)
+  [ ] it is CONFIRMED on the chain (confirmed balance >= collateral), not pending
+
+Then it signs: it calls confirmLock(loan) on Base with its own Base key, and logs
+"lock-confirmed" with the amount it saw and the transaction.
+When BOTH guardians have confirmed, the contract itself pays the principal to the
+borrower's payout address and the loan becomes Active.
+
+While the ZEC has not arrived it logs once "waiting: vault has X of Y zat".
+
+If no ZEC ever arrives: after the lock deadline (24 hours in the demo terms) the desk
+cancels and the contract returns its USDC. Nobody loses money.
+
+
+------------------------------------------------------------------------
+5. STAGE 2 - BEFORE THE ZEC GOES BACK (RELEASE)
+------------------------------------------------------------------------
+When: the borrower has repaid in full through the contract (status Repaid) and asks
+for its ZEC back; its app proposes a spend from the vault and signs its own share.
+
+The guardian checks, all must hold:
+  [ ] the contract says Repaid
+  [ ] the spend has exactly one output
+  [ ] that output pays the borrower's SIGNED payout address (from the acceptance)
+  [ ] it returns everything except the fee (amount >= vault balance - 50,000 zat)
+
+Then it approves the spend in the vault (signing its share) and logs
+"approve-release" with the rule "repaid on Base". Borrower + both guardians = 3 of 4,
+and the borrower's app sends it.
+
+
+------------------------------------------------------------------------
+6. STAGE 3 - BEFORE A LIQUIDATION
+------------------------------------------------------------------------
+When: the loan is Active and the desk's agent proposes a liquidation spend.
+
+First, a published rule must be met, judged with the guardian's own price:
+  [ ] LTV >= the liquidation level in the signed offer (75% in the demo terms)
+        LTV = debt still owed / (ZEC in the vault x ZEC price)
+      OR the contract says the loan is past its deadline (isOverdue)
+  If neither holds: refuse ("no liquidation rule is met at this price").
+  If there is no price (fewer than 3 good exchanges): refuse.
+
+Then the spend itself:
+  [ ] it pays the desk's SIGNED ZEC address (from the offer) exactly once
+  [ ] the desk gets AT MOST what it is owed at this price:
+        share = owed / price x (1 + 2% slippage buffer), rounded up
+  [ ] any second output pays the borrower's SIGNED address, and nothing else is paid
+  [ ] desk share + borrower surplus >= vault balance - 50,000 zat
+      i.e. the surplus goes back IN THE SAME TRANSACTION
+  Underwater case: if the desk is owed more than the vault holds (the price fell
+  straight through the line), the desk may take the vault less the fee and there is
+  no surplus. Allowed only when the computed share really exceeds the vault (tested).
+
+Then it approves (signs its share), logs "approve-liquidation" with the price, its
+source, each exchange's average and the rule, e.g. "LTV 85.81% >= 75%". Desk + both
+guardians = 3 of 4. Once the transaction is broadcast, each guardian calls
+confirmLiquidation(loan) on Base and logs "liquidation-recorded"; when both have, the
+contract marks the loan Liquidated.
+
+
+------------------------------------------------------------------------
+7. THE PRICE
+------------------------------------------------------------------------
+- Five exchanges: Bitstamp, Bitfinex, Gemini (ZEC/USD), Gate.io and MEXC (ZEC/USDT,
+  USDT taken at par). (Coinbase, Kraken and Binance APIs did not resolve from the
+  development machine.)
+- Per exchange: the average of the last hour's 1-minute closes. An exchange counts
+  only with at least 10 one-minute candles in the hour; a thinner one is left out and
+  shown with the reason (on 9 Oct Bitfinex had 3).
+- At least 3 exchanges must count, or there is no price and nothing that needs one
+  happens. The price is the MEDIAN of those that count. Never a single tick.
+- Read at most every 30 seconds (it is an hour average).
+- Demo price override: for the video, the desk can set a price. The guardians use it,
+  and every signature made under it is logged as "demo override". It does not exist
+  in a production build.
+
+
+------------------------------------------------------------------------
+8. WHAT A GUARDIAN REFUSES (EXAMPLES)
+------------------------------------------------------------------------
+  - a liquidation while the loan is healthy (LTV under the line, not overdue)
+  - a liquidation that pays the desk more than it is owed
+  - a liquidation without the surplus to the borrower in the same transaction
+  - any spend that pays an address that is not one of the two signed addresses
+  - a release before the contract says Repaid
+  - a release to any address other than the borrower's signed address
+  - a release that keeps back more than the fee
+  - anything on a loan whose offer or acceptance signature does not hold
+  - anything in a vault that is not the agreed 3-of-4 vault
+  - a liquidation when fewer than 3 exchanges give a price
+Each refusal is logged once per spend and reason, with the reason.
+(Tested: services/test/policy.test.ts, 11 tests.)
+
+
+------------------------------------------------------------------------
+9. THE SIGNED LOG
+------------------------------------------------------------------------
+Every guardian decision is an entry in the loan's log in the loanbook, signed with
+that guardian's Base key (EIP-191 personal_sign) over this exact text:
+
+  Hypothec log:<kind>
+  loan=<loan id>
+  <field>=<value>        one line per field, fields sorted by name
+
+Kinds a guardian writes:
+  waiting               the vault does not yet hold the collateral
+  lock-confirmed        saw the full amount; confirmed on Base (with the tx)
+  approve-release       signed the release (rule: repaid on Base)
+  approve-liquidation   signed the liquidation (rule, price, source, each exchange)
+  liquidation-recorded  recorded the liquidation on Base (Zcash tx + Base tx)
+  refuse                refused, with the reason
+
+Anyone can verify an entry: rebuild the text above from the entry's kind, loan and
+data, and check the signature recovers to the guardian's Base address on the operator
+list. The log carries no amounts in dollars or identities beyond the parties' Base
+addresses; the ZEC figures are visible only to the loan's parties through the app.
+
+The lender's and borrower's own entries (offer, accept) are signed the same way with
+kinds "offer" and "accept". Setup notes (vault-open, vault-join, safety-number) and
+the desk's "funded" and "liquidated" notes are unsigned notes.
+
+
+------------------------------------------------------------------------
+10. WHAT A GUARDIAN CANNOT DO
+------------------------------------------------------------------------
+- Move the ZEC on its own, or with the other guardian alone (2 of 4).
+- Pay the borrower's USDC before both guardians have confirmed the lock; pay it to a
+  different address (the contract pays the address the borrower accepted with).
+- Change where the ZEC goes: payout addresses are signed by the borrower and the desk
+  and checked against those signatures.
+- Hold the whole vault key: it never exists.
+- See the borrower's wallet: the vault's viewing key shows the vault, nothing else.
+
+
+------------------------------------------------------------------------
+11. TRUST MODEL AND HONEST LIMITS
+------------------------------------------------------------------------
+- Residual trust: both guardians + the desk (or + the borrower) colluding could move
+  the ZEC against the rules. Same model as Unchained's BTC loans, with a second
+  independent guardian added. Say it openly.
+- Liveness: release and liquidation need BOTH guardians online. If one is lost, the
+  borrower + desk + the other guardian can still close; replacing a guardian (FROST
+  share repair) is roadmap.
+- The price feed is off-chain, read by each guardian itself.
+- Demo: both guardians are run by the Hypothec team, on a local Zcash test chain
+  (Zcash testnet is blocked by NU7 for now, D13); the price override exists only for
+  the demo.
+- Not audited. zafe (the vault and signing code underneath) is pre-release.
+- Roadmap for real operators: independent companies (escrow, key-agent or audit firms,
+  known Zcash organisations), a published operator list, a public signed log, and
+  later a bond an operator loses if it signs against the rules.
+
+
+------------------------------------------------------------------------
+12. THE GUARDIANS SCREEN (web/ -> log.html)
+------------------------------------------------------------------------
+- "What the guardians check, right now": the three stages above. Each check shows
+  passed / waiting / failed with its figure (e.g. "0.0065 ZEC of 0.0065 ZEC"). Under
+  each stage, each guardian's real decision from its signed log: confirmed or signed
+  with the time and a link to the Base transaction, refused with the reason, watching,
+  or nothing to sign yet.
+  The checks are computed by the API with the same rule functions the guardians run
+  (services/src/policy.ts), from Guardian A's own view of the vault; the decisions are
+  the guardians' own signed entries.
+- "The operators": each guardian's Base address, signed entries count, current seat,
+  and the three rules it enforces.
+- "Signed log": every entry, newest first, signed or note.
+
+
+------------------------------------------------------------------------
+13. WHERE IT IS IN THE CODE
+------------------------------------------------------------------------
+  services/src/referee.ts     the guardian service: watching, checks, signing, log
+  services/src/policy.ts      the rules: LTV, lender share, release and liquidation
+  services/src/price.ts       the five-exchange price
+  services/src/sign.ts        the signed-entry text and verification
+  services/src/loanbook.ts    the loanbook; verifies offer and accept signatures
+  services/src/serve.ts       starts the loanbook and both guardians
+  services/src/actions.ts     key setup (keySetup) and the parties' actions
+  services/src/api.ts         guardianChecks(): the checklist the screen shows
+  usdc/contracts/HypothecLoans.sol   confirmLock, confirmLiquidation, isOverdue, cancel
+  core/                       each party's service: its key share, DKG, approvals
+  web/pages.mjs, shell.mjs    the Guardians screen and the vault-making step
+  services/test/policy.test.ts       rule tests
+  services/test/e2e-web.mjs          whole loans through the screens (repay, liquidate)

@@ -1,0 +1,77 @@
+diff --git a/crates/zafe-cli/src/main.rs b/crates/zafe-cli/src/main.rs
+index d3bae57..f659f7d 100644
+--- a/crates/zafe-cli/src/main.rs
++++ b/crates/zafe-cli/src/main.rs
+@@ -65,13 +65,14 @@ enum Command {
+     Vault(VaultCmd),
+     /// Sync the vault wallet and print the balance.
+     Sync,
+-    /// Propose a payment.
++    /// Propose a payment. Repeat `--to`/`--amount` for one transaction with several
++    /// outputs; they pair up in order.
+     Propose {
+-        #[arg(long)]
+-        to: String,
++        #[arg(long, required = true)]
++        to: Vec<String>,
+         /// Amount in zatoshis.
+-        #[arg(long)]
+-        amount: u64,
++        #[arg(long, required = true)]
++        amount: Vec<u64>,
+         #[arg(long)]
+         memo: Option<String>,
+         /// Send as soon as the approvals complete (one-tap vaults).
+@@ -306,11 +307,18 @@ async fn main() -> Result<()> {
+             let memo = memo
+                 .map(|m| Memo::from_bytes(m.as_bytes()).map(|m| m.encode()))
+                 .transpose()?;
+-            let payments = [PaymentRequest {
+-                address: to,
+-                amount_zat: amount,
+-                memo,
+-            }];
++            if to.len() != amount.len() {
++                bail!("give one --amount for each --to");
++            }
++            let payments: Vec<_> = to
++                .into_iter()
++                .zip(amount)
++                .map(|(address, amount_zat)| PaymentRequest {
++                    address,
++                    amount_zat,
++                    memo: memo.clone(),
++                })
++                .collect();
+             let id = node::propose(
+                 &relay,
+                 &home.identity()?,
+diff --git a/crates/zafe-core/examples/vault_address.rs b/crates/zafe-core/examples/vault_address.rs
+index a95470c..852366e 100644
+--- a/crates/zafe-core/examples/vault_address.rs
++++ b/crates/zafe-core/examples/vault_address.rs
+@@ -13,7 +13,9 @@ fn main() {
+         .try_into()
+         .unwrap();
+     let keys = VaultKeys::derive(&VaultSecret::from_bytes([1; 32]), &ak).unwrap();
+-    let address = keys.fvk().address_at(0u32, Scope::External);
++    // Optional diversifier index, for several distinct recipients from the same key.
++    let index: u32 = std::env::args().nth(1).map_or(0, |i| i.parse().unwrap());
++    let address = keys.fvk().address_at(index, Scope::External);
+     let ua = UnifiedAddress::from_receivers(Some(address), None, None, None, None).unwrap();
+     let one = Some(BlockHeight::from_u32(1));
+     let regtest = LocalNetwork {
+@@ -29,6 +31,13 @@ fn main() {
+         nu6_3: one,
+         nu7: None,
+     };
++    // Optional second argument "test": encode for testnet instead of regtest.
++    if std::env::args().nth(2).as_deref() == Some("test") {
++        let test = zcash_protocol::consensus::Network::TestNetwork;
++        println!("ua={}", ua.encode(&test));
++        println!("ufvk={}", keys.ufvk().unwrap().encode(&test).unwrap());
++        return;
++    }
+     println!("ua={}", ua.encode(&regtest));
+     println!("ufvk={}", keys.ufvk().unwrap().encode(&regtest).unwrap());
+ }

@@ -1,0 +1,25 @@
+# Dependencies and build output
+node_modules/
+target/
+web/dist/
+usdc/artifacts/
+usdc/cache/
+*.tsbuildinfo
+
+# Local state: loanbooks, wallets, logs
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+*.log
+
+# Secrets never live in the repo (test keys are in ~/.hypothec, deploy keys in the host's
+# secret store)
+.env
+.env.*
+*.pem
+*.key
+testnet-wallets*.json
+
+# Private planning notes
+BRIEF.txt
+BUILD-PLAN.txt

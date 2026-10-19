@@ -1,0 +1,4 @@
+# Scripts run on Linux (WSL, the build server): keep Unix line endings.
+*.sh text eol=lf
+*.py text eol=lf
+Dockerfile text eol=lf

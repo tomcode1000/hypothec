@@ -1,0 +1,339 @@
+import { vaultLines } from './art.mjs'
+import { MARK, appPage, page } from './chrome.mjs'
+import { borrowDialog, borrowerSide, btn, card, cardHead, deskSide, guardian, heading, health, info, lendDialog, line, loanPick, making, markets, pill, portfolioTabs, quest, stage, vaultArt } from './shell.mjs'
+
+/**
+ * The pages, organised as Quorum's are: each app screen carries only the work done on
+ * it, and everything that explains the product lives in Docs.
+ *
+ *   index.html     the landing surface: what Hypothec is, in brief; no app rail
+ *   markets.html   the order book; Borrow and Lend on each desk's row, each in a dialog
+ *   loan.html      Portfolio, Borrowing: the borrower's loans, step by step
+ *   desk.html      Portfolio, Lending: requests to answer, the desk's loans, its order
+ *   log.html       Guardians: what they check now, the operators, the signed log
+ *   docs.html      Docs: how it works, who sees what, controls, limits, testnet
+ *
+ * Anyone can post an order (D14); a borrow can be filled from several orders (D16), each
+ * piece its own loan in its own vault.
+ */
+
+/* --------------------------------------------------------------- landing -- */
+
+const header = `<header class="site-head"><div class="shell site-head-in">
+  <a class="brand" href="index.html"><span class="mark">${MARK}</span><span>Hypothec</span></a>
+  <nav class="site-links" aria-label="Primary"><a href="docs.html">Docs</a><a href="log.html">Guardians</a></nav>
+  <div class="site-end">${btn('Open the app', { href: 'markets.html' })}</div>
+</div></header>`
+
+/* The loan's structure, as a term sheet would state it. No figure here: each desk
+   publishes its own levels and rate, and the app shows them live. */
+const STRUCTURE = [
+  ['Collateral', 'ZEC, held in a shielded Zcash vault'],
+  ['Loan', 'USDC on Base, paid out by the loan contract'],
+  ['Custody', 'One threshold key per loan; any 3 of its 4 holders can sign'],
+  ['Key holders', 'Borrower, lending desk, two independent guardians'],
+  ['Liquidation', "Only past the desk's published LTV; any surplus returns in the same transaction"],
+]
+
+/* The landing page's three lines: what a borrower, a lender and a guardian each do. */
+const TRIO = [
+  ['01', 'Borrow', 'Pick a desk\u2019s order, or several. Your ZEC goes into a shielded vault per loan, and the USDC is paid on Base.'],
+  ['02', 'Lend', 'Post an order with your rate, term and LTV levels. Your desk holds one key of each loan\u2019s vault.'],
+  ['03', 'Guardians', 'Two independent operators sign only what the published rules allow, and log every decision.'],
+]
+
+const STEPS = [
+  ['Request', 'The borrower picks an amount from the desks’ orders. One borrow can be filled from several desks; each piece is its own loan.'],
+  ['Vault', 'Borrower, desk and both guardians make one shielded vault per loan. Each holds a share; the whole key never exists.'],
+  ['Lock', 'The borrower pays every vault in one shielded transaction. When both guardians see it confirmed, the contract pays the USDC.'],
+  ['Repay', 'The borrower repays through the contract, at any time before the due date.'],
+  ['Release', 'The contract records repayment and both guardians sign the ZEC back to the borrower.'],
+]
+
+const CONTROLS = [
+  ['No single party can move the collateral', 'Every spend needs three of four keys. The desk with one guardian cannot; both guardians alone cannot.'],
+  ['Liquidation follows published rules only', 'Guardians sign only past the LTV in the signed offer, or after the due date, and only if the desk takes no more than it is owed.'],
+  ['Surplus returns in the same transaction', 'A liquidation pays the desk and the borrower in one transaction. A guardian refuses any spend that does not.'],
+  ['Every decision is signed and logged', 'Each guardian signs what it approved or refused, and why, with the price and the rule it applied.'],
+]
+
+const SEES = [
+  ['Borrower', 'Everything about its own loans', '—'],
+  ['Lending desk', 'The collateral in its own loan’s vault, through the viewing key; where the USDC is paid; the ZEC address the vault returns to', 'The borrower’s Zcash wallet, its balance or history, or the borrower’s loans with other desks'],
+  ['Guardians', 'What the desk sees, and the signed terms they enforce', 'The borrower’s Zcash wallet'],
+  ['Zcash, publicly', 'Shielded transactions', 'Owner, amount, or that a loan exists'],
+  ['Base, publicly', 'Each loan contract: USDC amount, payout address, status', 'Any Zcash detail; the contract stores none'],
+]
+
+const DISCLOSURES = [
+  ['Test build', 'Runs on Zcash testnet (or a local test chain) and Base Sepolia, with test coins only. The testnet build uses pre-release Zcash libraries for NU7.'],
+  ['Guardians', 'Both guardians in this build are run by the Hypothec team. In production they are independent operators from a published list, approved by each borrower.'],
+  ['Audit', 'Not audited. The threshold-signing library underneath is pre-release software.'],
+  ['Availability', 'Release and liquidation need both guardians online. If one is unavailable, the borrower, the desk and the other guardian can close the loan together.'],
+  ['Price', 'Each guardian reads the price off-chain on its own: the one-hour average of at least three of five exchanges. Without three, nothing that needs a price is signed.'],
+  ['Desks', 'Each desk lends its own money and does its own customer checks. There is no shared pool: pooling lenders would need a custodian for the lender’s key share.'],
+]
+
+const index = () =>
+  page({
+    title: 'Private loans against ZEC',
+    body: `${header}
+<main>
+  <section class="hero">${vaultLines({ cls: 'art-hero' })}<div class="shell hero-in">
+    <div class="hero-copy">
+      <p class="kicker">Private credit for Zcash holders</p>
+      <h1 class="h-hero">USDC loans against shielded ZEC.</h1>
+      <p class="lede">The collateral never leaves Zcash's shielded pool, and no single party can move it: not the borrower, not the lender, not Hypothec. Two independent guardians sign only what published rules allow.</p>
+      <div class="hero-cta">${btn('Open the app', { href: 'markets.html' })}${btn('Read the docs', { href: 'docs.html', tone: 'ghost' })}</div>
+    </div>
+    <div class="card hero-sheet">
+      <div class="card-head"><h2 class="h2">Loan structure</h2><span class="pill">Test build</span></div>
+      <dl class="facts">${STRUCTURE.map(([k, d]) => `<div><dt>${k}</dt><dd>${d}</dd></div>`).join('')}</dl>
+    </div>
+  </div></section>
+  <section class="band"><div class="shell">
+    <div class="trio">${TRIO.map(([n, t, b]) => `<div><span class="trio-n">${n}</span><h3>${t}</h3><p>${b}</p></div>`).join('')}</div>
+    <p class="trio-more"><a href="docs.html#how">How a loan runs, step by step</a></p>
+  </div></section>
+</main>
+<footer class="site-foot"><div class="shell site-foot-in">
+  <a class="brand" href="index.html"><span class="mark">${MARK}</span><span>Hypothec</span></a>
+  <nav class="site-foot-links" aria-label="Footer"><a href="markets.html">Markets</a><a href="docs.html">Docs</a><a href="log.html">Guardians</a></nav>
+  <p>Test build for the ZECATHON. Zcash testnet and Base Sepolia; nothing here holds real money.</p>
+</div></footer>`,
+  })
+
+/* ------------------------------------------------------------- markets -- */
+
+const marketsPage = () =>
+  appPage({
+    title: 'Markets',
+    view: 'markets',
+    side: borrowerSide('Markets'),
+    main: `${heading('Markets', 'USDC against shielded ZEC. Borrow from one desk or several, or post your own order.', [
+      ['Available', 'm-available'],
+      ['Desks', 'm-desks'],
+      ['ZEC price', 'price'],
+    ])}
+  ${markets()}
+  ${borrowDialog()}
+  ${lendDialog()}`,
+  })
+
+/* ----------------------------------------------------------- portfolio -- */
+
+/** One panel of the borrow's progress. app.js shows the one whose `data-step` matches. */
+const step = (name, body) => `<div class="step" data-step="${name}"${name === 'none' ? '' : ' hidden'}>${body}</div>`
+
+const pieceTable = (key, cols) => `<div class="mini" role="table"><div class="mini-row mini-head" role="row">${cols.map((c) => `<span>${c}</span>`).join('')}</div><div data-app="${key}"></div></div>`
+
+const borrowerSteps = () => [
+  step('none', `${cardHead('No loans yet')}
+    <div class="pad"><p class="muted">Borrow from a desk on Markets; your loans show up here.</p>
+    ${btn('Go to Markets', { href: 'markets.html', wide: true })}</div>`),
+  step('wait-offer', `${cardHead('Waiting for the desks')}
+    <div class="pad">${pieceTable('wait-rows', ['Desk', 'You receive', 'You will lock', 'Status'])}
+      <div class="sheet">${line('ZEC to lock in all', 'b-lock-quote')}</div>
+      <p class="fine">Next: accept the offers here. One payment request, an address and a QR code for every vault, appears on this page as soon as the vaults are made.</p>
+      ${btn('Drop unanswered requests', { act: 'borrower/cancel', tone: 'ghost', wide: true })}</div>`),
+  step('accept', `${cardHead('Review and accept')}
+    <div class="pad">
+      ${pieceTable('accept-rows', ['Desk', 'You receive', 'You lock', 'You owe', 'Due', 'Liquidation'])}
+      <div class="sheet">${line('ZEC to lock in all', 'b-accept-lock')}</div>
+      <p class="fine" data-app="accept-note"></p>
+      <label class="field"><span>Your ZEC comes back to</span><input data-input="zec-payout" type="text" spellcheck="false" placeholder="a fresh shielded address from your Zcash wallet"/></label>
+      <p class="fine">Signed into each loan; nobody can change it later. <button class="linkish" type="button" data-fill="test-zec">Use the test wallet's address</button></p>
+      <div class="preflight" data-app="preflight-accept"></div>
+      ${btn('Accept and sign', { act: 'borrower/accept', wide: true, key: 'accept-label' })}
+    </div>`),
+  step('keys', `${cardHead('Making the vaults')}
+    <div class="pad"><p class="sub-h" data-app="keys-note">One vault per loan</p>${making()}</div>`),
+  step('wait-fund', `${cardHead('The desks are funding')}
+    <div class="pad">${pieceTable('piece-rows', ['Desk', 'Amount', 'Status'])}</div>`),
+  step('lock', `${cardHead('Lock your ZEC')}
+    <div class="pad">
+      <div class="sheet">${line('Send in all', 'b-lock-total')}</div>
+      ${pieceTable('lock-rows', ['Desk', 'Vault', 'Amount'])}
+      <div class="lockto">
+        <div class="qr" data-app="lock-qr" aria-label="QR code of the payment request"></div>
+        <label class="field"><span>Payment request (ZIP 321), one transaction to every vault</span><div class="copy mono" data-app="lock-uri">—</div></label>
+      </div>
+      ${btn('Send from the test wallet', { act: 'borrower/lock', tone: 'ghost', wide: true })}
+    </div>`),
+  step('confirming', `${cardHead('Guardians are checking the vaults')}
+    <div class="pad">${pieceTable('piece-rows', ['Desk', 'Amount', 'Status'])}</div>`),
+  step('active', `${cardHead('Your loans')}
+    <div class="pad">
+      ${pieceTable('loan-rows-b', ['Desk', 'Received', 'Left', 'Due', 'LTV', 'Status', ''])}
+      <div class="preflight" data-app="preflight-repay"></div>
+      ${btn('Repay all', { act: 'borrower/repay-all', wide: true, key: 'repay-all' })}
+      ${btn('Get all ZEC back', { act: 'borrower/release-all', wide: true, key: 'release-all' })}
+      <details class="fold" data-app="topup">
+        <summary>Add collateral</summary>
+        <div data-app="topup-note"></div>
+        <div class="topup-fields">
+          <label class="field"><span>To the vault of</span><select data-app="topup-pick"></select></label>
+          <label class="field"><span>Add</span><div class="amount"><input data-input="topup" type="number" min="0" step="0.001" inputmode="decimal"/><b>ZEC</b></div></label>
+        </div>
+        ${btn('Add from the test wallet', { act: 'borrower/topup', tone: 'ghost', wide: true })}
+      </details>
+    </div>`),
+  step('closed', `${cardHead('Settled')}
+    <div class="pad">${pieceTable('outcome-rows', ['Desk', 'Outcome', 'Back to you', 'Zcash transaction'])}
+      ${btn('Borrow again', { href: 'markets.html', tone: 'ghost', wide: true })}</div>`),
+]
+
+const loan = () =>
+  appPage({
+    title: 'Portfolio',
+    view: 'borrower',
+    side: borrowerSide('Portfolio'),
+    main: `${heading('Portfolio', '<span data-app="basket-sub">Your loans</span>', [
+      ['Borrowed', 'b-principal'],
+      ['Left to repay', 'b-left'],
+      ['Locked', 'vault-zec'],
+      ['Highest LTV', 'b-ltv'],
+    ])}
+  ${portfolioTabs('Borrowing')}
+  <section class="card progress" data-app="progress" hidden>
+    <div class="progress-text"><b data-app="prog-title">—</b><span data-app="prog-detail"></span></div>
+    <span class="progress-time" data-app="prog-time"></span>
+    <div class="progress-bar" aria-hidden="true"><i></i></div>
+  </section>
+  ${card(quest(), ' data-card="quest" data-when="loans"')}
+  <section class="card scene">
+    <div class="scene-play">${borrowerSteps().join('')}</div>
+    <div class="scene-vault" data-when="loans"><p class="kicker">Vaults</p>${vaultArt()}</div>
+  </section>
+  <div class="pair" data-when="loans">
+    ${card(`${cardHead('Health', '', loanPick())}<div class="pad">${health()}</div>`)}
+    ${card(`${cardHead('Guardians', '', '<a class="more" href="log.html?as=borrower">Log</a>')}<div class="pad"><div class="guardians">${guardian('A')}${guardian('B')}</div></div>`)}
+  </div>`,
+  })
+
+const desk = () =>
+  appPage({
+    title: 'Portfolio',
+    view: 'desk',
+    side: deskSide('Portfolio'),
+    main: `${heading('Portfolio', 'Your desk and the loans it has made.', [
+      ['Lent now', 'd-lent'],
+      ['Available to lend', 'd-desk-usdc'],
+      ['Collateral', 'd-collateral'],
+      ['ZEC price', 'price'],
+    ])}
+  ${portfolioTabs('Lending')}
+  <section class="card order-bar">
+    <div><span class="kicker">Your order</span><b data-app="my-desk-status">Connect a wallet</b></div>
+    <button class="btn btn-ghost" type="button" data-open="lend" data-app="edit-order"><span>Post an order</span></button>
+  </section>
+  <section class="card table-card">
+    <div class="table-top"><span class="kicker" data-app="req-count">Requests</span></div>
+    <div class="table table-req" role="table">
+      <div class="tr th" role="row"><span>Borrower</span><span>Asks you for</span><span>Locks</span><span>Owes</span><span>Of their borrow</span><span>Pays out to</span><span></span></div>
+      <div data-app="req-rows"></div>
+    </div>
+  </section>
+  <section class="card table-card">
+    <div class="table-top"><span class="kicker" data-app="loan-count">Loans</span></div>
+    <div class="table table-loans" role="table">
+      <div class="tr th" role="row"><span>Loan</span><span>Rate</span><span>Lent</span><span>Collateral</span><span>LTV</span><span>Guardians</span><span>Status</span><span></span></div>
+      <div data-app="loan-rows"></div>
+    </div>
+    <p class="fine table-foot" data-app="d-liq-why"></p>
+  </section>
+  ${card(`${cardHead('Loan detail', '', loanPick())}${quest()}`, ' data-card="quest" id="detail" data-when="loans"')}
+  <div class="pair" data-when="loans">
+    ${card(`<div class="pad">${health()}</div>`)}
+    ${card(`${cardHead('Guardians', '', '<a class="more" href="log.html?as=desk">Log</a>')}<div class="pad"><div class="guardians">${guardian('A')}${guardian('B')}</div></div>`)}
+  </div>
+  <details class="card fold fold-card">
+    <summary>Price feed and demo controls</summary>
+    <div class="pad">
+      <div class="feeds feeds-wide" data-app="feeds"></div>
+      <div class="override">
+        <label class="field"><span>Demo price override</span><div class="amount"><input data-input="override" type="number" min="1" step="10" placeholder="live"/><b>USD</b></div></label>
+        <div class="actions">${btn('Set', { act: 'lender/price', tone: 'ghost' })}${btn('Back to live', { act: 'lender/price-live', tone: 'ghost' })}</div>
+      </div>
+      <p class="fine">For the demo only. Guardians log every signature made under an override as such.</p>
+    </div>
+  </details>
+  ${lendDialog()}`,
+  })
+
+/* ------------------------------------------------------------- guardians -- */
+
+const operator = (letter) => `<div class="operator card">
+  <div class="operator-head">
+    <span class="guardian-token guardian-token-lg">${letter}</span>
+    <div><h3>Guardian ${letter}</h3><p>Demo operator · run by the Hypothec team</p></div>
+    ${pill('On the list', 'good')}
+  </div>
+  <div class="sheet">${line('Base address', `op-${letter}-addr`)}${line('Signed entries', `op-${letter}-count`)}${line('Seat', `op-${letter}-seat`)}</div>
+</div>`
+
+const log = () =>
+  appPage({
+    title: 'Guardians',
+    view: 'log',
+    side: `<div data-app="log-side"></div>`,
+    main: `${heading('Guardians', 'What the two guardians check, and every decision they signed.', [
+      ['Operators', 'log-ops'],
+      ['Signed entries', 'log-signed'],
+    ])}
+  <div class="section-row"><h2 class="section-h">Checks</h2>${loanPick()}</div>
+  <div class="stages">
+    ${stage('lock', 1, 'Before the borrower is paid', 'The ZEC is locked and confirmed.')}
+    ${stage('release', 2, 'Before the ZEC goes back', 'Repaid, and only to the borrower.')}
+    ${stage('liquidation', 3, 'Before a liquidation', 'Past the line, surplus in the same move.')}
+  </div>
+  <h2 class="section-h">Operators</h2>
+  <div class="pair">${operator('A')}${operator('B')}</div>
+  ${card(`${cardHead('Signed log', '', pill('—', '', 'log-count'))}<div class="log" data-app="log"></div>`)}`,
+  })
+
+/* The log page carries the rail either way; app.js picks the side the visitor came from. */
+const logWithRails = () =>
+  log().replace('<div data-app="log-side"></div>', `<div data-rail-for="borrower">${borrowerSide('Guardians')}</div><div data-rail-for="desk" hidden>${deskSide('Guardians')}</div>`)
+
+/* ------------------------------------------------------------------ docs -- */
+
+const DOCS = [
+  ['overview', 'Overview', `<p>Hypothec lends USDC on Base against ZEC that stays shielded on Zcash. Each loan's collateral sits in its own vault: one threshold key with four holders (the borrower, the lending desk and two guardians), any three of whom can sign. No single party, and no two of them, can move it alone.</p>
+    <dl class="facts">${STRUCTURE.map(([k, d]) => `<div><dt>${k}</dt><dd>${d}</dd></div>`).join('')}</dl>`],
+  ['how', 'How a loan runs', `<ol class="steps">${STEPS.map(([t, b], i) => `<li><span class="steps-n">${String(i + 1).padStart(2, '0')}</span><h3>${t}</h3><p>${b}</p></li>`).join('')}</ol>`],
+  ['orders', 'Orders and split borrows', `<p>Any wallet can open a desk and post an order: its rate, term, loan-to-value levels and how much it lends in all. Markets lists every order.</p>
+    <p>A borrower can fill one borrow from several orders. The desk chosen fills first and the other ticked orders cover the rest. Each piece becomes its own loan, with its own vault and its desk's terms, so a liquidation of one piece leaves the others untouched. The borrower accepts every offer at once and locks every vault in one shielded transaction.</p>`],
+  ['controls', 'Controls', `<div class="grid2">${CONTROLS.map(([t, b]) => `<div class="grid2-cell"><h3>${t}</h3><p>${b}</p></div>`).join('')}</div>`],
+  ['visibility', 'Who sees what', `<div class="card"><table class="dt">
+      <thead><tr><th scope="col">Party</th><th scope="col">Sees</th><th scope="col">Never sees</th></tr></thead>
+      <tbody>${SEES.map(([w, y, n]) => `<tr><th scope="row">${w}</th><td>${y}</td><td>${n}</td></tr>`).join('')}</tbody>
+    </table></div>`],
+  ['guardians', 'Guardians', `<p>A guardian is an operator from the Hypothec list running the published rules engine. It confirms a lock only when it sees the full amount in the vault; it releases only after the contract says repaid, and only to the borrower's signed address; it liquidates only past the published line, or after the due date, with the surplus to the borrower in the same transaction. It signs every decision, and the reason, into the log.</p>`],
+  ['limits', 'Status and limits', `<dl class="disclosures">${DISCLOSURES.map(([k, d]) => `<div><dt>${k}</dt><dd>${d}</dd></div>`).join('')}</dl>`],
+]
+
+const docs = () =>
+  appPage({
+    title: 'Docs',
+    view: 'docs',
+    side: borrowerSide('Docs'),
+    main: `${heading('Docs', 'How Hypothec works, what it protects, and its limits.')}
+  <div class="docs">
+    <nav class="docs-toc" aria-label="On this page">${DOCS.map(([id, t]) => `<a href="#${id}">${t}</a>`).join('')}</nav>
+    <article class="docs-body">${DOCS.map(([id, t, body]) => `<section id="${id}"><h2 class="h2">${t}</h2>${body}</section>`).join('')}</article>
+  </div>`,
+  })
+
+/* Old links to borrow.html land on Markets. */
+const moved = (to) => page({ title: 'Markets', body: `<meta http-equiv="refresh" content="0; url=${to}"/><p class="shell"><a href="${to}">Markets</a></p>` })
+
+export const pages = () => ({
+  'index.html': index(),
+  'markets.html': marketsPage(),
+  'borrow.html': moved('markets.html'),
+  'loan.html': loan(),
+  'desk.html': desk(),
+  'log.html': logWithRails(),
+  'docs.html': docs(),
+})

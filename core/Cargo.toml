@@ -1,0 +1,31 @@
+[package]
+name = "hypothec-core"
+version = "0.1.0"
+description = "Hypothec party service: one party's FROST share of a 2-of-3 shielded loan vault"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "hypothec-party"
+path = "src/main.rs"
+
+[[bin]]
+name = "hypothec-watch"
+path = "src/bin/watch.rs"
+
+[dependencies]
+# zafe (MIT OR Apache-2.0, Anmol Bansal and Zafe contributors), vendored with the
+# multi-output patch in ../spike/zafe-multi-output.patch. Versions follow its Cargo.lock.
+zafe-core = { path = "../vendor/zafe/crates/zafe-core" }
+zafe-proto = { path = "../vendor/zafe/crates/zafe-proto" }
+zcash_protocol = "=0.11.0-pre.0"
+zcash_keys = "=0.17.0-pre.1"
+axum = "0.8"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "sync", "signal", "time"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+clap = { version = "4", features = ["derive", "env"] }
+anyhow = "1"
+rand = "0.8"
+hex = "0.4"

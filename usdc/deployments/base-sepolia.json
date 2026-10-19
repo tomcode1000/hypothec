@@ -1,0 +1,14 @@
+{
+  "network": "base-sepolia",
+  "chainId": 84532,
+  "usdc": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+  "HypothecLoans": "0x63dd4a31a6b559f3a893f0c474a145b6fdff817a",
+  "deployTx": "0x63a0769333a614db3a76bb55cc8577c799986f3e87124baeef1b890644250972",
+  "deployedAt": "2026-10-16T16:40:22.658Z",
+  "previous": [
+    {
+      "HypothecLoans": "0xdc821cdb076a1b2c5d1ada9a242f33b97d34f0a5",
+      "deployTx": "0x5eed8d9de4d63813b6385e863d7537f8821aa3eac92bc4d2e3a069e0be4fa79c"
+    }
+  ]
+}

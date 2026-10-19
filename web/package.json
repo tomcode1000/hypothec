@@ -1,0 +1,15 @@
+{
+  "name": "hypothec-web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Hypothec borrower app and lending desk (static pages + one bundled wallet script)",
+  "license": "MIT",
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2",
+    "qrcode-generator": "2.0.4",
+    "viem": "2.57.4"
+  }
+}

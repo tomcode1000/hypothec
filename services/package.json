@@ -1,0 +1,20 @@
+{
+  "name": "hypothec-services",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Hypothec loanbook, referee rules engine and the wired end-to-end flow",
+  "license": "MIT",
+  "scripts": {
+    "test": "node --test -r ts-node/register test/*.test.ts",
+    "serve": "ts-node src/serve.ts all",
+    "flow": "ts-node src/flow.ts"
+  },
+  "dependencies": {
+    "viem": "2.57.4"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.5",
+    "ts-node": "10.9.2",
+    "typescript": "5.9.3"
+  }
+}

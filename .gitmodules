@@ -1,0 +1,3 @@
+[submodule "vendor/zafe"]
+	path = vendor/zafe
+	url = https://github.com/zafe-cash/zafe

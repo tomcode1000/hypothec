@@ -1,0 +1,14 @@
+[workspace]
+resolver = "2"
+members = ["core"]
+# vendor/zafe is its own workspace (its crates inherit settings from it).
+exclude = ["vendor"]
+
+[workspace.package]
+edition = "2021"
+rust-version = "1.88"
+license = "MIT OR Apache-2.0"
+
+# Halo 2 proving is unusably slow unoptimized (as in zafe).
+[profile.dev.package."*"]
+opt-level = 3

@@ -48,12 +48,16 @@ if [[ ! -f "$HOME_DIR/a/vault.bin" ]]; then
   sb=$(call GET 7892 /vault/members | python3 -c 'import json,sys; print(json.load(sys.stdin)["safety_number"])')
   [[ "$sa" == "$sb" ]] || { echo "safety numbers differ"; exit 1; }
   call POST 7891 /vault/keygen "{\"safety_number\":\"$sa\"}" > "$HOME_DIR/keygen-a.json" &
+  keygen_a=$!
   call POST 7892 /vault/keygen "{\"safety_number\":\"$sb\"}" > "$HOME_DIR/keygen-b.json"
-  wait
+  # Only this call: a bare `wait` would also wait for the key-share services started above,
+  # which run until stopped.
+  wait "$keygen_a"
   cat "$HOME_DIR/keygen-a.json"; echo
 fi
 
 address=$(call GET 7891 /vault | python3 -c 'import json,sys; print(json.load(sys.stdin)["address"])')
 echo "$address" > "$HOME_DIR/address"
 echo "TEST WALLET ADDRESS (testnet): $address"
-echo "balance: $(call GET 7891 /balance)"
+# The balance syncs the wallet with lightwalletd; a host skips it so its site starts at once.
+[[ -n "${SKIP_BALANCE:-}" ]] || echo "balance: $(call GET 7891 /balance)"

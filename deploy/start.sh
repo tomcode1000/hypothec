@@ -24,7 +24,7 @@ ZAFE_RELAY_LISTEN=127.0.0.1:48790 ZAFE_RELAY_DB=/data/stack/relay.sqlite zafe-re
 wait_port 48790
 
 echo "== test wallet"
-WALLET_HOME=/data/testnet-wallet RELAY_PORT=48790 RELAY_BIN=/usr/local/bin/zafe-relay \
+SKIP_BALANCE=1 WALLET_HOME=/data/testnet-wallet RELAY_PORT=48790 RELAY_BIN=/usr/local/bin/zafe-relay \
   bash /app/e2e/testnet-wallet.sh || echo "test wallet: not ready yet (it retries on the next deploy)"
 if [[ -f /data/testnet-wallet/address ]]; then
   export HYPOTHEC_TEST_WALLET_ZEC=$(cat /data/testnet-wallet/address)

@@ -9,7 +9,16 @@ import { message } from "../src/sign";
 import { ZEC_ADDRESS } from "../src/zec";
 
 const ZEC = "uregtest1pztwkegallegrv2q2nrx06lk40agnp2qqjcan5wy2h4vcfwvyy70jchh64acc7h4yha4avsqzpu87dqppxl8z9erx3kugye67cdtyljp";
-const terms = (owner: `0x${string}`, over: Partial<DeskTerms> = {}): DeskTerms => ({ ...DEMO_TERMS, owner, lenderZec: ZEC, at: 1, ...over });
+// Two guardians from the operator list (registered in the loanbook tests below).
+const gKeys = [generatePrivateKey(), generatePrivateKey()];
+const [gA, gB] = gKeys.map((k) => privateKeyToAccount(k).address);
+const terms = (owner: `0x${string}`, over: Partial<DeskTerms> = {}): DeskTerms => ({ ...DEMO_TERMS, owner, lenderZec: ZEC, guardianA: gA, guardianB: gB, at: 1, ...over });
+async function registerGuardians(store: LoanStore) {
+  for (const [i, key] of gKeys.entries()) {
+    const info = { address: privateKeyToAccount(key).address, name: `Guardian ${"AB"[i]}`, operator: "Test operator", feeBps: 10, code: "a".repeat(64), at: Date.now() };
+    await handle(store, "POST", "/guardians", { info, sig: await privateKeyToAccount(key).signMessage({ message: message("guardian", info.address, info, "guardian") }) });
+  }
+}
 const signDesk = (key: `0x${string}`, t: DeskTerms) => privateKeyToAccount(key).signMessage({ message: message("desk", t.owner, t, "desk") });
 
 test("desk terms: the levels must be in order and leave room for a surplus", () => {
@@ -21,6 +30,8 @@ test("desk terms: the levels must be in order and leave room for a surplus", () 
   assert.match(checkDesk(terms(owner, { termSeconds: 60 }), ZEC_ADDRESS)!, /10 minutes/);
   assert.match(checkDesk(terms(owner, { lenderZec: "t1notshielded" }), ZEC_ADDRESS)!, /shielded/);
   assert.match(checkDesk(terms(owner, { name: "<script>" }), ZEC_ADDRESS)!, /name/);
+  assert.match(checkDesk(terms(owner, { guardianB: gA }), ZEC_ADDRESS)!, /different operators/);
+  assert.match(checkDesk(terms(owner, { guardianA: owner }), ZEC_ADDRESS)!, /own guardian/);
 });
 
 test("quote: interest runs for the desk's term in seconds", () => {
@@ -48,6 +59,10 @@ test("top-up: the suggested amount brings the loan back to the start LTV", () =>
 test("the loanbook lists a desk only with its owner's signature, one name per desk", async () => {
   const store = new LoanStore(":memory:");
   const aKey = generatePrivateKey();
+  // A desk naming guardians that are not on the operator list is refused.
+  const early = terms(privateKeyToAccount(aKey).address);
+  await assert.rejects(handle(store, "POST", "/desks", { terms: early, sig: await signDesk(aKey, early) }), /operator list/);
+  await registerGuardians(store);
   const bKey = generatePrivateKey();
   const a = terms(privateKeyToAccount(aKey).address);
   await assert.rejects(handle(store, "POST", "/desks", { terms: a, sig: await signDesk(bKey, a) }), /signature/);
@@ -82,4 +97,23 @@ test("fill: one borrow across several desks' orders, cheapest first", async () =
   // Same rate: the larger order first, so fewer loans.
   const tie = fill(5_000_000n, [{ owner: a, aprBps: 1000, remainingUsdc: 1_000_000n }, { owner: b, aprBps: 1000, remainingUsdc: 8_000_000n }]);
   assert.deepEqual(tie.pieces.map((p) => p.desk), [b]);
+});
+
+test("operator list: a guardian registers with its own signature and stays online with signed heartbeats", async () => {
+  const { ONLINE_MS } = await import("../src/loanbook");
+  const store = new LoanStore(":memory:");
+  const key = generatePrivateKey();
+  const me = privateKeyToAccount(key);
+  const info = { address: me.address, name: "Guardian C", operator: "Another operator", feeBps: 10, code: "b".repeat(64), at: Date.now() };
+  const other = privateKeyToAccount(generatePrivateKey());
+  await assert.rejects(handle(store, "POST", "/guardians", { info, sig: await other.signMessage({ message: message("guardian", info.address, info, "guardian") }) }), /signature/);
+  await handle(store, "POST", "/guardians", { info, sig: await me.signMessage({ message: message("guardian", info.address, info, "guardian") }) });
+  const at = Date.now();
+  await assert.rejects(handle(store, "POST", "/guardians/heartbeat", { address: me.address, at, sig: await other.signMessage({ message: message("heartbeat", me.address, { at }, "guardian") }) }), /signature/);
+  await handle(store, "POST", "/guardians/heartbeat", { address: me.address, at, sig: await me.signMessage({ message: message("heartbeat", me.address, { at }, "guardian") }) });
+  const old = at - 10 * 60_000;
+  await assert.rejects(handle(store, "POST", "/guardians/heartbeat", { address: me.address, at: old, sig: await me.signMessage({ message: message("heartbeat", me.address, { at: old }, "guardian") }) }), /too old/);
+  const listed = (await handle(store, "GET", "/guardians", {})) as { info: { name: string }; lastSeen: number }[];
+  assert.equal(listed[0].info.name, "Guardian C");
+  assert.ok(Date.now() - listed[0].lastSeen < ONLINE_MS);
 });

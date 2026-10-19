@@ -35,6 +35,30 @@ export interface Accept extends Fields {
   borrowerZec: string;
 }
 
+/// What a guardian publishes about itself, signed with its key (kind "guardian").
+export interface GuardianInfo extends Fields {
+  address: Address;
+  name: string;
+  /// Who runs it.
+  operator: string;
+  /// Its fee per loan, in basis points of the principal (the contract pays 10).
+  feeBps: number;
+  /// A fingerprint (sha256) of the rules code it runs, so anyone can compare it with the
+  /// published source.
+  code: string;
+  at: number;
+}
+
+export interface Guardian {
+  info: GuardianInfo;
+  sig: Hex;
+  /// When its last signed heartbeat arrived (ms); online if recent.
+  lastSeen: number;
+}
+
+/// A guardian is online if its last heartbeat is this recent.
+export const ONLINE_MS = 90_000;
+
 export interface LoanDoc {
   id: Hex;
   /// The borrow this loan is one piece of (D16): one request filled from several desks.
@@ -66,7 +90,8 @@ export class LoanStore {
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS loans (id TEXT PRIMARY KEY, doc TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS events (seq INTEGER PRIMARY KEY AUTOINCREMENT, loan TEXT NOT NULL, ev TEXT NOT NULL);
-      CREATE TABLE IF NOT EXISTS desks (owner TEXT PRIMARY KEY, desk TEXT NOT NULL);`);
+      CREATE TABLE IF NOT EXISTS desks (owner TEXT PRIMARY KEY, desk TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS guardians (address TEXT PRIMARY KEY, guardian TEXT NOT NULL);`);
   }
   get(id: string): LoanDoc | undefined {
     const row = this.db.prepare("SELECT doc FROM loans WHERE id = ?").get(id) as { doc: string } | undefined;
@@ -81,6 +106,16 @@ export class LoanStore {
   }
   addEvent(ev: LoanEvent) {
     this.db.prepare("INSERT INTO events (loan, ev) VALUES (?, ?)").run(ev.loan, JSON.stringify(ev));
+  }
+  guardians(): Guardian[] {
+    return (this.db.prepare("SELECT guardian FROM guardians").all() as { guardian: string }[]).map((r) => JSON.parse(r.guardian));
+  }
+  guardian(address: string): Guardian | undefined {
+    const row = this.db.prepare("SELECT guardian FROM guardians WHERE address = ?").get(address.toLowerCase()) as { guardian: string } | undefined;
+    return row ? JSON.parse(row.guardian) : undefined;
+  }
+  putGuardian(g: Guardian) {
+    this.db.prepare("INSERT INTO guardians (address, guardian) VALUES (?, ?) ON CONFLICT(address) DO UPDATE SET guardian = excluded.guardian").run(g.info.address.toLowerCase(), JSON.stringify(g));
   }
   desks(): Desk[] {
     return (this.db.prepare("SELECT desk FROM desks").all() as { desk: string }[]).map((r) => JSON.parse(r.desk));
@@ -107,7 +142,33 @@ async function body(req: IncomingMessage): Promise<Record<string, unknown>> {
 
 /// Handles one request against the store. Exported for tests.
 export async function handle(store: LoanStore, method: string, path: string, b: Record<string, unknown>): Promise<unknown> {
-  const parts = path.split("/").filter(Boolean); // loans/:id/... or desks
+  const parts = path.split("/").filter(Boolean); // loans/:id/..., desks, guardians
+  if (parts[0] === "guardians") {
+    if (method === "GET" && parts.length === 1) return store.guardians();
+    if (method === "POST" && parts.length === 1) {
+      // A guardian registers itself, signed with its own key.
+      const { info, sig } = b as { info: GuardianInfo; sig: Hex };
+      if (!info?.address || !/^[\w .,'&()-]{1,40}$/.test(String(info.name)) || !/^[\w .,'&()-]{1,60}$/.test(String(info.operator))) throw new HttpError(400, "name and operator: letters, digits, spaces");
+      if (!Number.isSafeInteger(info.feeBps) || info.feeBps < 0 || info.feeBps > 500) throw new HttpError(400, "fee must be 0 to 500 bps");
+      if (!/^[0-9a-f]{64}$/.test(String(info.code))) throw new HttpError(400, "code must be a sha256 fingerprint");
+      if (!(await verify(info.address, "guardian", info.address, info, sig, "guardian"))) throw new HttpError(400, "the guardian's signature does not match");
+      const was = store.guardian(info.address);
+      const g: Guardian = { info, sig, lastSeen: was?.lastSeen ?? Date.now() };
+      store.putGuardian(g);
+      return g;
+    }
+    if (method === "POST" && parts[1] === "heartbeat") {
+      // A signed "still here", at most two minutes old.
+      const { address, at, sig } = b as { address: Address; at: number; sig: Hex };
+      const g = store.guardian(String(address));
+      if (!g) throw new HttpError(404, "no such guardian");
+      if (!(Math.abs(Date.now() - Number(at)) < 120_000)) throw new HttpError(400, "heartbeat too old");
+      if (!(await verify(address, "heartbeat", address, { at: Number(at) }, sig, "guardian"))) throw new HttpError(400, "heartbeat signature does not match");
+      g.lastSeen = Number(at);
+      store.putGuardian(g);
+      return { ok: true };
+    }
+  }
   if (parts[0] === "desks" && parts.length === 1) {
     if (method === "GET") return store.desks();
     if (method === "POST") {
@@ -116,6 +177,9 @@ export async function handle(store: LoanStore, method: string, path: string, b: 
       const why = checkDesk(terms, ZEC_ADDRESS);
       if (why) throw new HttpError(400, why);
       if (!(await verify(terms.owner, "desk", terms.owner, terms, sig, "desk"))) throw new HttpError(400, "the desk's signature does not match its terms");
+      for (const g of [terms.guardianA, terms.guardianB]) {
+        if (!store.guardian(g)) throw new HttpError(400, `guardian ${g} is not on the operator list`);
+      }
       const taken = store.desks().find((d) => d.terms.name.toLowerCase() === terms.name.toLowerCase() && d.terms.owner.toLowerCase() !== terms.owner.toLowerCase());
       if (taken) throw new HttpError(409, "another desk has that name");
       store.putDesk({ terms, sig });
@@ -205,6 +269,9 @@ export class LoanbookClient {
   }
   all() { return this.call<LoanDoc[]>("GET", "/loans"); }
   desks() { return this.call<Desk[]>("GET", "/desks"); }
+  guardians() { return this.call<Guardian[]>("GET", "/guardians"); }
+  registerGuardian(info: GuardianInfo, sig: Hex) { return this.call<Guardian>("POST", "/guardians", { info, sig }); }
+  heartbeat(address: Address, at: number, sig: Hex) { return this.call<{ ok: boolean }>("POST", "/guardians/heartbeat", { address, at, sig }); }
   openDesk(terms: DeskTerms, sig: Hex) { return this.call<Desk>("POST", "/desks", { terms, sig }); }
   get(id: Hex) { return this.call<LoanDoc>("GET", `/loans/${id}`); }
   offer(id: Hex, offer: Offer, lenderSig: Hex, basket?: string) { return this.call<LoanDoc>("POST", "/loans", { id, offer, lenderSig, basket }); }

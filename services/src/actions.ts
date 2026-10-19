@@ -2,7 +2,7 @@
 // run (flow.ts). Nothing here decides for a referee: the referees run on their own
 // (serve.ts) and act only through their own keys and rules.
 import { formatUnits, keccak256, toHex, type Hex } from "viem";
-import { baseAs, getLoan, usdcBalance } from "./base";
+import { baseAs, fundingAmount, getLoan, usdcBalance } from "./base";
 import { BASE_ADDRESS, baseAddress, CONTROL_URL, LOANBOOK_URL, LOANS, PRICE_OVERRIDE_FILE, ROLES, TEST_ZEC_ADDRESS, type Role } from "./config";
 import { DEMO_TERMS, lockWindow, quote, type DeskTerms } from "./desks";
 import { LoanbookClient, offerDigest, type Accept, type LoanDoc, type Offer } from "./loanbook";
@@ -69,8 +69,8 @@ export async function buildOffer(principalUsdc: bigint, desk: DeskTerms, borrowe
     contract: LOANS,
     lender: desk.owner,
     borrower: borrowerAddr,
-    refereeA: BASE_ADDRESS.refereeA,
-    refereeB: BASE_ADDRESS.refereeB,
+    refereeA: desk.guardianA,
+    refereeB: desk.guardianB,
     principalUsdc: q.principalUsdc.toString(),
     owedUsdc: q.owedUsdc.toString(),
     dueAt: Number(now) + desk.termSeconds,
@@ -91,7 +91,12 @@ export async function buildOffer(principalUsdc: bigint, desk: DeskTerms, borrowe
 /// Test runs: a test lender opens its desk, signed with its test key. Overrides let a run
 /// use a short term (the deadline path) or a second desk's own terms.
 export async function openTestDesk(over: Partial<typeof DEMO_TERMS> = {}, who: TestLender = "lender") {
-  const terms: DeskTerms = { ...DEMO_TERMS, ...over, owner: baseAddress(who), lenderZec: TEST_ZEC_ADDRESS[who], at: Date.now() };
+  // A desk can only name guardians on the operator list: wait for both to have registered.
+  await until("both guardians on the operator list", async () => {
+    const listed = (await loanbook.guardians()).map((g) => g.info.address.toLowerCase());
+    return [BASE_ADDRESS.refereeA, BASE_ADDRESS.refereeB].every((a) => listed.includes(a.toLowerCase()));
+  }, 90_000, 2000);
+  const terms: DeskTerms = { ...DEMO_TERMS, ...over, owner: baseAddress(who), lenderZec: TEST_ZEC_ADDRESS[who], guardianA: BASE_ADDRESS.refereeA, guardianB: BASE_ADDRESS.refereeB, at: Date.now() };
   const sig = await lenders[who].signMessage(message("desk", terms.owner, terms, "desk"));
   return (await loanbook.openDesk(terms, sig)).terms;
 }
@@ -144,7 +149,9 @@ export async function keySetup(id: Hex) {
 
 export async function lenderFund(id: Hex, principalUsdc: bigint, who: TestLender = "lender") {
   const lender = lenders[who];
-  const approve = await lender.approveUsdc(principalUsdc);
+  // The principal and both guardians' fees (0.10% each), as the contract asks.
+  void principalUsdc;
+  const approve = await lender.approveUsdc(await fundingAmount(id));
   const tx = await lender.loans("fund", [id]);
   await loanbook.event(id, { actor: "lender", kind: "funded", data: { status: "Funded" } });
   return { approve, tx };

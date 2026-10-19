@@ -4,7 +4,7 @@ import {
   type Abi, type Address, type Hash, type Hex,
 } from "viem";
 import { baseSepolia } from "viem/chains";
-import { privateKeyToAccount } from "viem/accounts";
+import { nonceManager, privateKeyToAccount } from "viem/accounts";
 import { baseKey, EXPLORER, LOANS, LOANS_ABI, USDC, type BaseWallet } from "./config";
 
 // The public RPC sometimes takes more than viem's default 10 s to answer; a resent signed
@@ -55,6 +55,11 @@ export async function getLoan(id: Hex): Promise<OnchainLoan & { statusName: Loan
   return { ...l, statusName: STATUS[l.status] };
 }
 
+/// What funding a loan takes from the lender: the principal and both guardians' fees.
+export async function fundingAmount(id: Hex): Promise<bigint> {
+  return (await retry(() => pub.readContract({ address: LOANS, abi: LOANS_ABI, functionName: "fundingAmount", args: [id] }))) as bigint;
+}
+
 export async function isOverdue(id: Hex): Promise<boolean> {
   return (await retry(() => pub.readContract({ address: LOANS, abi: LOANS_ABI, functionName: "isOverdue", args: [id] }))) as boolean;
 }
@@ -66,7 +71,7 @@ export async function usdcBalance(a: Address): Promise<bigint> {
 /// A role's write access: checks each call against the chain first, sends with a fixed gas
 /// limit, waits for success and returns the explorer link.
 export function baseAs(role: BaseWallet) {
-  const w = createWalletClient({ chain: baseSepolia, transport: rpc, account: privateKeyToAccount(baseKey(role)) });
+  const w = createWalletClient({ chain: baseSepolia, transport: rpc, account: privateKeyToAccount(baseKey(role), { nonceManager }) });
   async function call(address: Address, abi: Abi, functionName: string, args: readonly unknown[]): Promise<string> {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { request } = await retry(() => pub.simulateContract({ address, abi, functionName, args, account: w.account } as any));

@@ -79,6 +79,11 @@ contract HypothecLoans {
     }
 
     IERC20 public immutable usdc;
+
+    /// What each guardian earns per loan: 0.10% of the principal, paid by the lender with
+    /// the funding and handed over when both guardians confirm the lock. The same whether
+    /// the loan is later repaid or liquidated, so no guardian gains by liquidating.
+    uint256 public constant GUARDIAN_FEE_BPS = 10;
     mapping(bytes32 => Loan) private loans;
 
     event Offered(bytes32 indexed id, address indexed lender, address indexed borrower, uint256 principal, uint256 owed, uint64 dueAt);
@@ -91,6 +96,7 @@ contract HypothecLoans {
     event LiquidationConfirmed(bytes32 indexed id, address indexed referee);
     event Liquidated(bytes32 indexed id);
     event Cancelled(bytes32 indexed id, uint256 refunded);
+    event GuardianPaid(bytes32 indexed id, address indexed guardian, uint256 fee);
 
     error WrongStatus(Status status);
     error NotAllowed();
@@ -139,13 +145,24 @@ contract HypothecLoans {
         emit Accepted(id, payoutTo);
     }
 
-    /// The lender moves the principal into this contract (approve it first).
+    /// One guardian's fee on a principal.
+    function guardianFee(uint256 principal) public pure returns (uint256) {
+        return (principal * GUARDIAN_FEE_BPS) / 10_000;
+    }
+
+    /// What funding a loan takes from the lender: the principal and both guardians' fees.
+    function fundingAmount(bytes32 id) public view returns (uint256) {
+        return loans[id].principal + 2 * guardianFee(loans[id].principal);
+    }
+
+    /// The lender moves the principal and the guardians' fees into this contract (approve
+    /// fundingAmount first).
     function fund(bytes32 id) external {
         Loan storage l = loans[id];
         if (l.status != Status.Accepted) revert WrongStatus(l.status);
         if (msg.sender != l.lender) revert NotAllowed();
         l.status = Status.Funded;
-        _pull(msg.sender, address(this), l.principal);
+        _pull(msg.sender, address(this), fundingAmount(id));
         emit Funded(id);
     }
 
@@ -160,8 +177,13 @@ contract HypothecLoans {
         emit LockConfirmed(id, msg.sender);
         if (l.lockA && l.lockB) {
             l.status = Status.Active;
+            uint256 fee = guardianFee(l.principal);
             _send(l.payoutTo, l.principal);
+            _send(l.refereeA, fee);
+            _send(l.refereeB, fee);
             emit Active(id, l.payoutTo, l.principal);
+            emit GuardianPaid(id, l.refereeA, fee);
+            emit GuardianPaid(id, l.refereeB, fee);
         }
     }
 
@@ -234,8 +256,9 @@ contract HypothecLoans {
             if (msg.sender != l.lender) revert NotAllowed();
             if (block.timestamp <= l.lockBy) revert WrongStatus(l.status);
             l.status = Status.Cancelled;
-            _send(l.lender, l.principal);
-            emit Cancelled(id, l.principal);
+            uint256 back = fundingAmount(id);
+            _send(l.lender, back);
+            emit Cancelled(id, back);
         } else {
             revert WrongStatus(l.status);
         }

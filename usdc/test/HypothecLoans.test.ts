@@ -10,6 +10,9 @@ chai.use(chaiAsPromised);
 const USDC = (n: number) => BigInt(Math.round(n * 1_000_000));
 const PRINCIPAL = USDC(5);
 const OWED = USDC(5.15);
+/// Each guardian's fee is 0.10% of the principal; the lender funds both with the principal.
+const FEE = (PRINCIPAL * 10n) / 10_000n;
+const FUNDING = PRINCIPAL + 2n * FEE;
 const DAY = 86_400n;
 
 enum Status { None, Offered, Accepted, Funded, Active, Repaid, Liquidated, Cancelled }
@@ -48,7 +51,7 @@ async function balance(usdc: { read: { balanceOf: (a: [`0x${string}`]) => Promis
 async function activate(s: Awaited<ReturnType<typeof setup>>) {
   await (await s.as(s.lender).loans).write.offer([s.id, s.terms]);
   await (await s.as(s.borrower).loans).write.accept([s.id, s.payout.account.address]);
-  await (await s.as(s.lender).usdc).write.approve([s.loans.address, PRINCIPAL]);
+  await (await s.as(s.lender).usdc).write.approve([s.loans.address, FUNDING]);
   await (await s.as(s.lender).loans).write.fund([s.id]);
   await (await s.as(s.refA).loans).write.confirmLock([s.id]);
   await (await s.as(s.refB).loans).write.confirmLock([s.id]);
@@ -59,10 +62,10 @@ describe("HypothecLoans", () => {
     const s = await setup();
     await (await s.as(s.lender).loans).write.offer([s.id, s.terms]);
     await (await s.as(s.borrower).loans).write.accept([s.id, s.payout.account.address]);
-    await (await s.as(s.lender).usdc).write.approve([s.loans.address, PRINCIPAL]);
+    await (await s.as(s.lender).usdc).write.approve([s.loans.address, FUNDING]);
     await (await s.as(s.lender).loans).write.fund([s.id]);
     expect(await balance(s.usdc, s.payout)).to.equal(0n);
-    expect(await s.usdc.read.balanceOf([s.loans.address])).to.equal(PRINCIPAL);
+    expect(await s.usdc.read.balanceOf([s.loans.address])).to.equal(FUNDING); // principal + both fees
 
     await (await s.as(s.refA).loans).write.confirmLock([s.id]);
     expect(await balance(s.usdc, s.payout)).to.equal(0n); // one referee is not enough
@@ -108,7 +111,7 @@ describe("HypothecLoans", () => {
     const s = await setup();
     await (await s.as(s.lender).loans).write.offer([s.id, s.terms]);
     await (await s.as(s.borrower).loans).write.accept([s.id, s.payout.account.address]);
-    await (await s.as(s.lender).usdc).write.approve([s.loans.address, PRINCIPAL]);
+    await (await s.as(s.lender).usdc).write.approve([s.loans.address, FUNDING]);
     await (await s.as(s.lender).loans).write.fund([s.id]);
     for (const w of [s.lender, s.borrower, s.stranger]) {
       await expect((await s.as(w).loans).write.confirmLock([s.id])).to.be.rejectedWith("NotAllowed");
@@ -152,7 +155,7 @@ describe("HypothecLoans", () => {
     const s = await setup();
     await (await s.as(s.lender).loans).write.offer([s.id, s.terms]);
     await (await s.as(s.borrower).loans).write.accept([s.id, s.payout.account.address]);
-    await (await s.as(s.lender).usdc).write.approve([s.loans.address, PRINCIPAL]);
+    await (await s.as(s.lender).usdc).write.approve([s.loans.address, FUNDING]);
     await (await s.as(s.lender).loans).write.fund([s.id]);
     const lenderLoans = await s.as(s.lender).loans;
     await expect(lenderLoans.write.cancel([s.id])).to.be.rejectedWith("WrongStatus"); // too early
@@ -189,7 +192,7 @@ async function secondLoan(s: Awaited<ReturnType<typeof setup>>, owed = USDC(2.06
   const terms2 = { ...s.terms, repayTo: s.stranger.account.address, principal: USDC(2), owed };
   await (await s.as(s.stranger).loans).write.offer([id2, terms2]);
   await (await s.as(s.borrower).loans).write.accept([id2, s.payout.account.address]);
-  await (await s.as(s.stranger).usdc).write.approve([s.loans.address, USDC(2)]);
+  await (await s.as(s.stranger).usdc).write.approve([s.loans.address, USDC(2) + 2n * (USDC(2) * 10n) / 10_000n]);
   await (await s.as(s.stranger).loans).write.fund([id2]);
   await (await s.as(s.refA).loans).write.confirmLock([id2]);
   await (await s.as(s.refB).loans).write.confirmLock([id2]);
@@ -219,7 +222,8 @@ describe("HypothecLoans: repay all at once", () => {
     await (await s.as(s.borrower).usdc).write.approve([s.loans.address, OWED + owed2]);
     await (await s.as(s.borrower).loans).write.repayAll([[s.id, id2]]);
     expect(await balance(s.usdc, s.repayTo)).to.equal(OWED);
-    expect(await balance(s.usdc, s.stranger)).to.equal(USDC(20) - USDC(2) + owed2);
+    // The second lender funded 2 USDC plus both guardians' fees, and got its owed back.
+    expect(await balance(s.usdc, s.stranger)).to.equal(USDC(20) - USDC(2) - 2n * ((USDC(2) * 10n) / 10_000n) + owed2);
     expect(await balance(s.usdc, s.borrower)).to.equal(before - OWED - owed2);
     for (const id of [s.id, id2]) {
       const l = await s.loans.read.getLoan([id]);
@@ -281,5 +285,48 @@ describe("HypothecLoans: repay all at once", () => {
     await (await s.as(s.stranger).usdc).write.permit([s.borrower.account.address, s.loans.address, OWED, deadline, p.v, p.r, p.s]);
     await (await s.as(s.borrower).loans).write.repayAllWithPermit([[s.id], OWED, deadline, p.v, p.r, p.s]);
     expect((await s.loans.read.getLoan([s.id])).status).to.equal(Status.Repaid);
+  });
+});
+
+describe("HypothecLoans: guardian fees", () => {
+  it("pays each guardian 0.10% of the principal when the lock is confirmed, from the lender's funding", async () => {
+    const s = await setup();
+    const lenderBefore = await balance(s.usdc, s.lender);
+    await activate(s);
+    expect(await balance(s.usdc, s.payout)).to.equal(PRINCIPAL); // the borrower gets exactly the principal
+    expect(await balance(s.usdc, s.refA)).to.equal(FEE);
+    expect(await balance(s.usdc, s.refB)).to.equal(FEE);
+    expect(lenderBefore - (await balance(s.usdc, s.lender))).to.equal(FUNDING);
+    expect(await s.usdc.read.balanceOf([s.loans.address])).to.equal(0n);
+    expect(await s.loans.read.fundingAmount([s.id])).to.equal(FUNDING);
+  });
+
+  it("pays the same fee whatever happens next: repaid or liquidated", async () => {
+    for (const end of ["repay", "liquidate"]) {
+      const s = await setup();
+      await activate(s);
+      if (end === "repay") {
+        await (await s.as(s.borrower).usdc).write.approve([s.loans.address, OWED]);
+        await (await s.as(s.borrower).loans).write.repay([s.id, OWED]);
+      } else {
+        await (await s.as(s.refA).loans).write.confirmLiquidation([s.id]);
+        await (await s.as(s.refB).loans).write.confirmLiquidation([s.id]);
+      }
+      expect(await balance(s.usdc, s.refA)).to.equal(FEE);
+      expect(await balance(s.usdc, s.refB)).to.equal(FEE);
+    }
+  });
+
+  it("returns the fees with the principal if the lock is never confirmed", async () => {
+    const s = await setup();
+    const lenderBefore = await balance(s.usdc, s.lender);
+    await (await s.as(s.lender).loans).write.offer([s.id, s.terms]);
+    await (await s.as(s.borrower).loans).write.accept([s.id, s.payout.account.address]);
+    await (await s.as(s.lender).usdc).write.approve([s.loans.address, FUNDING]);
+    await (await s.as(s.lender).loans).write.fund([s.id]);
+    await time.increaseTo(s.terms.lockBy + 1n);
+    await (await s.as(s.lender).loans).write.cancel([s.id]);
+    expect(await balance(s.usdc, s.lender)).to.equal(lenderBefore);
+    expect(await balance(s.usdc, s.refA)).to.equal(0n);
   });
 });

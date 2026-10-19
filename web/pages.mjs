@@ -287,8 +287,8 @@ const log = () =>
     ${stage('release', 2, 'Before the ZEC goes back', 'Repaid, and only to the borrower.')}
     ${stage('liquidation', 3, 'Before a liquidation', 'Past the line, surplus in the same move.')}
   </div>
-  <h2 class="section-h">Operators</h2>
-  <div class="pair">${operator('A')}${operator('B')}</div>
+  <h2 class="section-h">Operator list</h2>
+  <div class="operators" data-app="operators"><div class="feat feat-skel"></div><div class="feat feat-skel"></div></div>
   ${card(`${cardHead('Signed log', '', pill('—', '', 'log-count'))}<div class="log" data-app="log"></div>`)}`,
   })
 

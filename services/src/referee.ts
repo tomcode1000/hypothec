@@ -18,6 +18,19 @@ import { partyFor, type Spend } from "./party";
 import { checkLiquidation, checkRelease, liquidationReason, type Terms } from "./policy";
 import { zecPrice } from "./price";
 import { message, verify, type Fields } from "./sign";
+import { createHash } from "crypto";
+import { readFileSync } from "fs";
+import { join } from "path";
+
+/// A fingerprint of the rules this guardian runs: sha256 of its rules engine and rule
+/// functions, published in the operator list so anyone can compare it with the source.
+export function codeFingerprint(): string {
+  const h = createHash("sha256");
+  for (const f of ["referee.ts", "policy.ts", "price.ts"]) h.update(readFileSync(join(__dirname, f)));
+  return h.digest("hex");
+}
+
+const NAMES = { refereeA: "Guardian A", refereeB: "Guardian B" } as const;
 
 export function termsOf(doc: LoanDoc): Terms {
   return {
@@ -50,6 +63,21 @@ export function startReferee(role: "refereeA" | "refereeB", loanbook: LoanbookCl
   const lastNote = new Map<string, string>();
   const say = (s: string) => console.log(`[${role}] ${s}`);
 
+  // On the operator list: register (signed) and keep a signed heartbeat going.
+  const register = async () => {
+    const info = { address: me, name: NAMES[role], operator: process.env.HYPOTHEC_OPERATOR ?? "Hypothec team (demo)", feeBps: 10, code: codeFingerprint(), at: Date.now() };
+    await loanbook.registerGuardian(info, await base.signMessage(message("guardian", me, info, "guardian")));
+    say(`on the operator list, code ${info.code.slice(0, 12)}`);
+  };
+  const beat = async () => {
+    const at = Date.now();
+    await loanbook.heartbeat(me, at, await base.signMessage(message("heartbeat", me, { at }, "guardian"))).catch(async (e) => {
+      if (/no such guardian/.test(String(e))) await register().catch(() => undefined);
+    });
+  };
+  register().catch((e) => say(`could not register yet: ${(e as Error).message}`));
+  setInterval(beat, 30_000);
+
   async function log(loan: Hex, kind: string, data: Fields) {
     const sig = await base.signMessage(message(`log:${kind}`, loan, data));
     await loanbook.event(loan, { actor: role, kind, data, sig });
@@ -70,7 +98,9 @@ export function startReferee(role: "refereeA" | "refereeB", loanbook: LoanbookCl
     const terms = termsOf(doc);
     const onchain = await getLoan(id);
     // This referee's own key share for this loan (its party host keeps one per loan).
-    const party = await partyFor(id, role);
+    // This guardian's seat on this loan: the desk names its two guardians, A and B.
+    const seat: Role = doc.offer.refereeA === me ? "refereeA" : "refereeB";
+    const party = await partyFor(id, seat);
 
     let vault;
     try {

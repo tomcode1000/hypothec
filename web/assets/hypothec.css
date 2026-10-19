@@ -3700,3 +3700,57 @@ label.tr {
 .heading .chip > span {
   color: var(--ink-3);
 }
+
+/* Guardians on an order, and the operator list. */
+.guards {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--ink-3);
+}
+
+.dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 4px;
+  border-radius: 50%;
+}
+
+.dot-on {
+  background: var(--good);
+}
+
+.dot-off {
+  background: var(--bad);
+}
+
+.operators {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.operator-head .avatar {
+  width: 44px;
+  height: 44px;
+}
+
+.desk-guardians {
+  margin-top: 16px;
+}
+
+.desk-guardians select {
+  width: 100%;
+  height: 42px;
+  padding: 0 10px;
+  border: 1px solid var(--border-2);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  font: 500 14px var(--sans);
+  color: var(--ink);
+}

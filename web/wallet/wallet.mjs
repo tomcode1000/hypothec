@@ -147,9 +147,10 @@ export const offer = (id, t) =>
     principal: BigInt(t.principal), owed: BigInt(t.owed), dueAt: BigInt(t.dueAt), lockBy: BigInt(t.lockBy),
   }])
 
-/** Moves the principal into the contract: an approve, then the fund call. */
-export async function fund(id, principal) {
-  const a = await approveUsdc(BigInt(principal))
+/** Moves the principal and both guardians' fees into the contract: an approve, then fund. */
+export async function fund(id) {
+  const amount = await retry(() => pub.readContract({ address: cfg.loans, abi: LOANS_ABI, functionName: 'fundingAmount', args: [id] }))
+  const a = await approveUsdc(amount)
   const f = await loans('fund', [id])
   return { approve: a, fund: f }
 }

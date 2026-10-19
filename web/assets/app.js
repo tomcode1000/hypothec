@@ -110,6 +110,10 @@
   const me = () => W?.address?.() || null
 
   const ended = (l) => !!l?.ended
+  /* A guardian from the operator list, by address. */
+  const guardianOf = (s, address) => (s.guardians || []).find((g) => same(g.address, address)) || null
+  const gName = (s, address) => guardianOf(s, address)?.name || short(address)
+  const dot = (g) => `<i class="dot ${g?.online ? 'dot-on' : 'dot-off'}" title="${g?.online ? 'online' : 'offline'}"></i>`
   const loanById = (s, id) => s.loans.find((l) => l.id === id) || null
   /* Jobs not finished for a loan: its buttons wait. */
   const busyLoan = (s, id) => s.jobs.some((j) => !j.done && j.loans.includes(id))
@@ -508,9 +512,12 @@
               const empty = BigInt(d.availableUsdc ?? 0) <= 0n
               const r = recordOf(s, d.owner)
               const record = r.repaid || r.liquidated ? `${r.repaid} repaid · ${r.liquidated} liquidated` : 'no loans closed yet'
+              const ga = guardianOf(s, d.guardianA)
+              const gb = guardianOf(s, d.guardianB)
+              const guards = `<span class="guards">${dot(ga)}${esc(gName(s, d.guardianA))} · ${dot(gb)}${esc(gName(s, d.guardianB))}</span>`
               const isBest = !own && !empty && d.aprBps === best && open.length > 1
               return `<div class="tr${isBest ? ' tr-best' : ''}" role="row">
-                <span class="td-desk" role="cell">${avatar(d)}<span><b>${esc(d.name)}${d.instant ? ' <i class="pill pill-good pill-sm">Instant</i>' : ''}${own ? ' <i class="pill pill-sm">Yours</i>' : ''}</b><em>${record}</em></span></span>
+                <span class="td-desk" role="cell">${avatar(d)}<span><b>${esc(d.name)}${d.instant ? ' <i class="pill pill-good pill-sm">Instant</i>' : ''}${own ? ' <i class="pill pill-sm">Yours</i>' : ''}</b><em>${record}</em>${guards}</span></span>
                 <span role="cell" data-label="Rate"><b class="num-accent">${pct(d.aprBps)}</b>${isBest ? '<em class="best">Best rate</em>' : ''}</span>
                 <span role="cell" data-label="Term"><b>${term(d.termSeconds)}</b></span>
                 <span role="cell" data-label="LTV start / liq."><b>${pct(d.startLtvBps)} / ${pct(d.liquidationLtvBps)}</b></span>
@@ -822,6 +829,16 @@
     put('liq', t.liquidationLtvBps / 100)
     put('slippage', t.slippageBps / 100)
     put('max', Number(t.maxUsdc) / 1e6)
+    const online = (last?.guardians || []).filter((g) => g.online)
+    for (const [key, want] of [['guardian-a', t.guardianA], ['guardian-b', t.guardianB]]) {
+      const sel = $(`[data-desk="${key}"]`)
+      if (!sel) continue
+      sel.innerHTML = online.map((g) => `<option value="${g.address}">${esc(g.name)} · ${esc(g.operator)}</option>`).join('') || '<option value="">no guardian online</option>'
+      if (want && online.some((g) => same(g.address, want))) sel.value = online.find((g) => same(g.address, want)).address
+    }
+    const a = $('[data-desk="guardian-a"]')
+    const b = $('[data-desk="guardian-b"]')
+    if (a && b && a.value === b.value && b.options.length > 1) b.selectedIndex = a.selectedIndex === 0 ? 1 : 0
     put('zec', t.lenderZec || '')
   }
 
@@ -929,7 +946,7 @@
     if (view === 'desk') paintDesk(s, focus)
     if ($('[data-app="lend-dialog"]')?.open) {
       const max = BigInt(Math.round(Number($('[data-desk="max"]')?.value || 0) * 1e6))
-      preflight('preflight-lend', { feeTxs: 1, usdc: max, usdcWhy: 'to lend the whole order' })
+      preflight('preflight-lend', { feeTxs: 1, usdc: max + 2n * ((max * 10n) / 10000n), usdcWhy: 'to lend the whole order (with the guardians\u2019 fees)' })
     }
 
     // Cards about loans wait until there is one.
@@ -939,16 +956,41 @@
 
     // The guardians and the operator list.
     const open = loans.filter((l) => !ended(l)).length
-    set('log-ops', '2')
+    if (!$('[data-app="operators"]')) set('log-ops', '2')
     set('log-signed', String(loans.reduce((n, l) => n + l.events.filter((e) => e.sig).length, 0)))
     for (const letter of ['A', 'B']) {
       const role = `referee${letter}`
-      set(`guardian-${letter}-addr`, short(s.addresses[role]))
+      const addr = focus?.offer[role] || s.addresses[role]
+      set(`guardian-${letter}-addr`, `${gName(s, addr)} · ${short(addr)}`)
       const [label, tone] = guardianState(focus, letter)
       setPill(`guardian-${letter}-state`, label, tone)
       set(`op-${letter}-addr`, short(s.addresses[role]))
       set(`op-${letter}-count`, String(loans.reduce((n, l) => n + l.events.filter((e) => e.actor === role && e.sig).length, 0)))
       set(`op-${letter}-seat`, open ? `On ${open} open loan${open === 1 ? '' : 's'}` : loans.length ? 'On your last loans' : 'Free')
+    }
+
+    const ops = $('[data-app="operators"]')
+    if (ops) {
+      ops.markup = (s.guardians || []).length
+        ? s.guardians
+            .map((g) => {
+              const seats = s.loans.filter((l) => same(l.offer.refereeA, g.address) || same(l.offer.refereeB, g.address))
+              const signed = seats.reduce((n, l) => n + l.events.filter((e) => e.sig && e.actor === (same(l.offer.refereeA, g.address) ? 'refereeA' : 'refereeB')).length, 0)
+              const ago = Math.max(0, Math.round((Date.now() - g.lastSeen) / 1000))
+              return `<div class="operator card">
+                <div class="operator-head"><span class="avatar" style="--h:${parseInt(g.address.slice(2, 8), 16) % 360}">${esc(g.name.split(' ').pop().slice(0, 2))}</span><div><h3>${esc(g.name)}</h3><p>${esc(g.operator)}</p></div><span class="pill ${g.online ? 'pill-good' : 'pill-bad'}">${g.online ? 'Online' : 'Offline'}</span></div>
+                <div class="sheet">
+                  <div class="line"><span>Base address</span><b class="mono">${short(g.address)}</b></div>
+                  <div class="line"><span>Last heartbeat</span><b>${ago < 60 ? `${ago} s ago` : `${Math.round(ago / 60)} min ago`}</b></div>
+                  <div class="line"><span>Fee per loan</span><b>${pct(g.feeBps)} of principal</b></div>
+                  <div class="line"><span>Loans guarded</span><b>${seats.length} · ${signed} signed entries</b></div>
+                  <div class="line"><span>Code fingerprint</span><b class="mono" title="${esc(g.code)}">${esc(g.code.slice(0, 16))}…</b></div>
+                </div>
+              </div>`
+            })
+            .join('')
+        : '<p class="table-empty">No guardian is on the operator list yet.</p>'
+      set('log-ops', String(s.guardians.filter((g) => g.online).length))
     }
 
     const feeds = $('[data-app="feeds"]')
@@ -1116,9 +1158,12 @@
         slippageBps: bps('slippage'),
         maxUsdc: Math.round(Number(val('max')) * 1e6),
         lenderZec: val('zec'),
+        guardianA: val('guardian-a'),
+        guardianB: val('guardian-b'),
         at: Date.now(),
       }
       if (!new RegExp(`^${last.chain.zecPrefix}`).test(terms.lenderZec)) throw new Error(`Paste your shielded ZEC address (${last.chain.zecPrefix}… on this chain)`)
+      if (!terms.guardianA || !terms.guardianB || same(terms.guardianA, terms.guardianB)) throw new Error('Pick two different guardians')
       confirm('Sign your desk’s terms')
       if (bal && bal.usdc < BigInt(terms.maxUsdc)) toast(`Posted orders lend from this wallet: it holds ${usdc(bal.usdc)} of the ${usdc(terms.maxUsdc)} you offer.`)
       const sig = await W.sign(W.message('desk', owner, terms, 'desk'))
@@ -1143,7 +1188,7 @@
       const l = loanById(last, btn.dataset.loan)
       needWallet(l.offer.lender, 'the desk')
       confirm('Approve the USDC, then fund')
-      await W.fund(l.id, l.offer.principalUsdc)
+      await W.fund(l.id)
       await post('lender/funded', { loan: l.id })
       toast('Funded. The USDC waits in the contract until the guardians see the ZEC')
     },

@@ -22,7 +22,7 @@ import {
   lockManyFromTestWallet, setPriceOverride, testLenderOf, topUpFromTestWallet,
 } from "./actions";
 import { DEMO_TERMS, MIN_TERM_SECONDS, quote, topUpToStartZat, type DeskTerms } from "./desks";
-import { offerDigest, type Accept, type LoanDoc, type Offer } from "./loanbook";
+import { ONLINE_MS, offerDigest, type Accept, type LoanDoc, type Offer } from "./loanbook";
 import { partyFor } from "./party";
 import { MAX_FEE_ZAT, lenderShareZat, liquidationReason, ltvBps } from "./policy";
 import { zecPrice } from "./price";
@@ -156,6 +156,8 @@ async function loanView(doc: LoanDoc, desks: DeskTerms[], price: Price) {
 async function state() {
   const price = await zecPrice().catch((e: Error) => ({ error: e.message }));
   const terms = (await loanbook.desks()).map((d) => d.terms);
+  // The operator list: each guardian as it registered, and whether its heartbeat is recent.
+  const guardians = (await loanbook.guardians()).map((g) => ({ ...g.info, lastSeen: g.lastSeen, online: Date.now() - g.lastSeen < ONLINE_MS }));
   const docs = (await loanbook.all()).sort((a, b) => a.updatedAt - b.updatedAt);
   const loans = await Promise.all(docs.map((d) => loanView(d, terms, price)));
   const sizing = "microUsd" in price ? Number(price.microUsd) / 1e6 : null;
@@ -197,6 +199,8 @@ async function state() {
 
   return {
     desks,
+    guardians,
+    guardianFeeBps: 10,
     baskets: basketViews,
     loans,
     jobs: jobs.slice(-20),

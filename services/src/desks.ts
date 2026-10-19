@@ -21,6 +21,10 @@ export interface DeskTerms extends Fields {
   maxUsdc: number;
   /// The desk's Zcash address for liquidation shares, signed into every offer it posts.
   lenderZec: string;
+  /// The two guardians from the operator list this desk works with; every offer names
+  /// them and the borrower sees them before accepting.
+  guardianA: Address;
+  guardianB: Address;
   at: number;
 }
 
@@ -48,6 +52,11 @@ export function checkDesk(t: DeskTerms, zecAddress: RegExp): string | null {
   if (t.liquidationLtvBps * (10_000 + t.slippageBps) >= 10_000 * 9_500) return "liquidation LTV plus the price buffer must stay below 95%";
   if (t.slippageBps > 1000) return "price buffer must be at most 10%";
   if (!zecAddress.test(t.lenderZec)) return "the desk's ZEC address is not a shielded address on this chain";
+  const hex = /^0x[0-9a-fA-F]{40}$/;
+  if (!hex.test(String(t.guardianA)) || !hex.test(String(t.guardianB))) return "pick two guardians";
+  const [a, b, o] = [t.guardianA, t.guardianB, t.owner].map((x) => String(x).toLowerCase());
+  if (a === b) return "the two guardians must be different operators";
+  if (a === o || b === o) return "a desk cannot be its own guardian";
   return null;
 }
 

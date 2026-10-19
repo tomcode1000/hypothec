@@ -11,7 +11,9 @@ import artifact from "../../usdc/artifacts/contracts/HypothecLoans.sol/HypothecL
 export const ROLES = ["borrower", "lender", "refereeA", "refereeB"] as const;
 export type Role = (typeof ROLES)[number];
 
-export const CONTROL_URL = "http://127.0.0.1:7899";
+/// The party host that runs this machine's key-share services (e2e/control.py); a guardian
+/// at its own operator points this at its own host.
+export const CONTROL_URL = process.env.HYPOTHEC_PARTY_HOST ?? "http://127.0.0.1:7899";
 export const LOANBOOK_PORT = Number(process.env.HYPOTHEC_LOANBOOK_PORT ?? 7900);
 export const LOANBOOK_URL = process.env.HYPOTHEC_LOANBOOK ?? `http://127.0.0.1:${LOANBOOK_PORT}`;
 

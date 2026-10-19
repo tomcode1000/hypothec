@@ -275,6 +275,11 @@ const lendDialog = () => `<dialog class="dialog dialog-wide" data-app="lend-dial
     </div>
     <label class="field"><span>ZEC address for liquidation shares</span><input data-desk="zec" type="text" spellcheck="false" placeholder="a shielded address from your Zcash wallet"/></label>
     <p class="fine">Your wallet signs these terms; every offer carries them. <button class="linkish" type="button" data-fill="test-desk">Use the test desk's address</button></p>
+    <div class="desk-form desk-guardians">
+      <label class="field"><span>Guardian A</span><select data-desk="guardian-a"></select></label>
+      <label class="field"><span>Guardian B</span><select data-desk="guardian-b"></select></label>
+    </div>
+    <p class="fine">Two independent operators from the operator list, online now. Each earns <b data-app="guardian-fee">0.10%</b> of a loan's principal, paid from your funding when it confirms the lock, the same whether the loan is repaid or liquidated.</p>
     <div class="preflight" data-app="preflight-lend"></div>
     ${btn('Sign and post', { act: 'lender/desk', wide: true, key: 'desk-publish' })}
   </div>

@@ -1,7 +1,7 @@
 // Where everything is. The Zcash side runs in WSL (e2e/stack.sh); Windows reaches it on
 // localhost. Base side: the deployed HypothecLoans (usdc/deployments) and the four TEST
 // wallets in ~/.hypothec/testnet-wallets.json (outside OneDrive).
-import { readFileSync } from "fs";
+import { existsSync, readFileSync } from "fs";
 import { homedir } from "os";
 import { join } from "path";
 import type { Abi, Address, Hex } from "viem";
@@ -22,13 +22,21 @@ export const LOANS: Address = JSON.parse(
   readFileSync(join(__dirname, "..", "..", "usdc", "deployments", "base-sepolia.json"), "utf8"),
 ).HypothecLoans;
 
-const wallets = JSON.parse(readFileSync(join(homedir(), ".hypothec", "testnet-wallets.json"), "utf8")).wallets;
-export const BASE_ADDRESS: Record<Role, Address> = Object.fromEntries(ROLES.map((r) => [r, wallets[r].address])) as Record<Role, Address>;
+// Read when present: the rules and loanbook tests (CI) run without any wallet file, and a
+// role's key is asked for only when something acts as that role.
+const WALLETS_FILE = join(homedir(), ".hypothec", "testnet-wallets.json");
+const wallets: Record<string, { address: Address; key: Hex }> = existsSync(WALLETS_FILE) ? JSON.parse(readFileSync(WALLETS_FILE, "utf8")).wallets : {};
+export const BASE_ADDRESS: Record<Role, Address> = Object.fromEntries(ROLES.map((r) => [r, wallets[r]?.address])) as Record<Role, Address>;
 /// The four roles' wallets, plus "lender2": a second test lender, so a borrow can be split
 /// across two desks run by different wallets (D16).
 export type BaseWallet = Role | "lender2";
-export const baseKey = (who: BaseWallet): Hex => wallets[who].key;
-export const baseAddress = (who: BaseWallet): Address => wallets[who].address;
+const wallet = (who: BaseWallet) => {
+  const w = wallets[who];
+  if (!w) throw new Error(`no test wallet "${who}" in ${WALLETS_FILE}`);
+  return w;
+};
+export const baseKey = (who: BaseWallet): Hex => wallet(who).key;
+export const baseAddress = (who: BaseWallet): Address => wallet(who).address;
 
 // Stand-ins for the parties' own Zcash wallets. Regtest: addresses 1, 2 and 3 of zafe's
 // throwaway example key (crates/zafe-core/examples/vault_address.rs, deterministic). Testnet:
@@ -48,7 +56,9 @@ const ZEC_STAND_INS = {
     lender2: "utest12xtpgmhnyhg9yu0xceayhv54re7gxfujusey5na6mndn5yq6tv94euagcuzlx48ey7jatvdqgpz6e82njrwnsc974c2fn00qs599svwe",
   },
 };
-export const TEST_ZEC_ADDRESS = ZEC_STAND_INS[ZEC_NETWORK === "test" ? "test" : "regtest"];
+export const TEST_ZEC_ADDRESS = { ...ZEC_STAND_INS[ZEC_NETWORK === "test" ? "test" : "regtest"] };
+// A host runs its own test wallet (deploy/start.sh): the borrower's payouts go back to it.
+if (process.env.HYPOTHEC_TEST_WALLET_ZEC) TEST_ZEC_ADDRESS.borrower = process.env.HYPOTHEC_TEST_WALLET_ZEC;
 
 /// Price override for the demo's "price feed" slider (BUILD-PLAN referee/): when this file
 /// exists both referees use its price instead of the live feeds, and log that they did.

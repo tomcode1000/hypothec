@@ -10,12 +10,14 @@
 #                                                      creating the wallet the first time
 # Leaves the relay and both parties running (ports 48791, 7891, 7892) until killed.
 set -euo pipefail
-source ~/hypothec-build/env.sh
-export CARGO_TARGET_DIR=~/hypothec-build/target-hypothec
-ZAFE_DIR=~/hypothec-build/zafe
-PARTY=$CARGO_TARGET_DIR/debug/hypothec-party
-HOME_DIR=~/hypothec-build/testnet-wallet
-RELAY_PORT=48791
+# Locally (WSL) the binaries are in ~/hypothec-build; a host (deploy/start.sh) passes its own.
+[[ -f ~/hypothec-build/env.sh ]] && source ~/hypothec-build/env.sh
+export CARGO_TARGET_DIR=${CARGO_TARGET_DIR:-~/hypothec-build/target-hypothec}
+ZAFE_DIR=${ZAFE_DIR:-~/hypothec-build/zafe}
+PARTY=${PARTY_BIN:-$CARGO_TARGET_DIR/debug/hypothec-party}
+RELAY_BIN=${RELAY_BIN:-$ZAFE_DIR/target/debug/zafe-relay}
+HOME_DIR=${WALLET_HOME:-~/hypothec-build/testnet-wallet}
+RELAY_PORT=${RELAY_PORT:-48791}
 export ZAFE_NETWORK=test ZAFE_LIGHTWALLETD=https://testnet.zec.rocks:443 ZAFE_RELAY="http://127.0.0.1:$RELAY_PORT"
 mkdir -p "$HOME_DIR/a" "$HOME_DIR/b"
 
@@ -25,7 +27,7 @@ call() { curl -sS -X "$1" "http://127.0.0.1:$2$3" -H 'content-type: application/
 
 if ! up "$RELAY_PORT"; then
   ZAFE_RELAY_LISTEN="127.0.0.1:$RELAY_PORT" ZAFE_RELAY_DB="$HOME_DIR/relay.sqlite" \
-    nohup "$ZAFE_DIR/target/debug/zafe-relay" >"$HOME_DIR/relay.log" 2>&1 </dev/null &
+    nohup "$RELAY_BIN" >"$HOME_DIR/relay.log" 2>&1 </dev/null &
   wait_port "$RELAY_PORT"
 fi
 for p in a:7891 b:7892; do
@@ -52,5 +54,6 @@ if [[ ! -f "$HOME_DIR/a/vault.bin" ]]; then
 fi
 
 address=$(call GET 7891 /vault | python3 -c 'import json,sys; print(json.load(sys.stdin)["address"])')
+echo "$address" > "$HOME_DIR/address"
 echo "TEST WALLET ADDRESS (testnet): $address"
 echo "balance: $(call GET 7891 /balance)"

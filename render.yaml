@@ -1,0 +1,21 @@
+# Render blueprint for the hosted demo (deploy/Dockerfile). GitHub Actions builds the image
+# on every push to main and pushes it to ghcr.io; it then calls the deploy hook stored in the
+# RENDER_DEPLOY_HOOK repository secret, and Render runs the new image.
+services:
+  - type: web
+    name: hypothec
+    runtime: image
+    image:
+      url: ghcr.io/tomcode1000/hypothec:latest
+    # Several always-on processes and Halo 2 proving: the 512 MB starter is too small.
+    plan: standard
+    healthCheckPath: /index.html
+    disk:
+      name: data
+      mountPath: /data
+      sizeGB: 5
+    envVars:
+      - key: TESTNET_WALLETS_JSON
+        sync: false
+      - key: HYPOTHEC_DEMO_TOKEN
+        generateValue: true

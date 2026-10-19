@@ -30,6 +30,12 @@ import { termsOf } from "./referee";
 import { ZEC_ADDRESS, ZEC_PREFIX } from "./zec";
 
 const PORT = Number(process.env.HYPOTHEC_API_PORT ?? 7910);
+/// Localhost unless told otherwise (the hosted demo binds every interface behind HTTPS).
+const HOST = process.env.HYPOTHEC_API_HOST ?? "127.0.0.1";
+/// On the public site the demo price override needs this token: without it any visitor
+/// could crash the price and liquidate other people's loans.
+const PUBLIC = process.env.HYPOTHEC_PUBLIC === "1";
+const DEMO_TOKEN = process.env.HYPOTHEC_DEMO_TOKEN ?? "";
 const WEB = join(__dirname, "..", "..", "web", "dist");
 /// Testnet faucet limits: at most this much in one borrow, in at most this many pieces.
 const MAX_BORROW_USDC = 15_000_000n;
@@ -483,6 +489,7 @@ async function act(path: string, body: Record<string, unknown>) {
       return { funded: true };
     }
     case "/api/lender/price": {
+      if (PUBLIC && (!DEMO_TOKEN || body.token !== DEMO_TOKEN)) throw new Error("The demo price controls are off on the public site.");
       const usd = body.usd === null ? null : Number(body.usd);
       if (usd !== null && !(usd > 0)) throw new Error("price must be positive");
       setPriceOverride(usd);
@@ -597,5 +604,5 @@ recoverBaskets().finally(() =>
     } catch (e) {
       res.writeHead(400, { "content-type": "application/json" }).end(JSON.stringify({ error: (e as Error).message }));
     }
-  }).listen(PORT, "127.0.0.1", () => console.log(`[api] http://127.0.0.1:${PORT}`)),
+  }).listen(PORT, HOST, () => console.log(`[api] http://${HOST}:${PORT}`)),
 );

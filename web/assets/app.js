@@ -1179,8 +1179,10 @@
         return
       }
       let body = { loan: b.dataset.loan }
-      if (act === 'lender/price') body = { usd: Number($('[data-input="override"]').value) }
-      else if (act === 'lender/price-live') (act = 'lender/price'), (body = { usd: null })
+      // On the public site the price controls need the demo token, given as ?demo=<token>.
+      const token = new URLSearchParams(location.search).get('demo') || undefined
+      if (act === 'lender/price') body = { usd: Number($('[data-input="override"]').value), token }
+      else if (act === 'lender/price-live') (act = 'lender/price'), (body = { usd: null, token })
       else if (act === 'borrower/topup') body = { loan: $('[data-app="topup-pick"]').value, zec: Number($('[data-input="topup"]').value) }
       else if (act === 'borrower/lock' || act === 'borrower/cancel') body = { basket: myBasket(last)?.id, borrower: me() }
       else if (act === 'borrower/release-all') body = { loans: basketLoans(last, myBasket(last)).filter((l) => l.onchain.status === 'Repaid').map((l) => l.id) }

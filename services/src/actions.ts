@@ -157,6 +157,15 @@ export async function lenderFund(id: Hex, principalUsdc: bigint, who: TestLender
   return { approve, tx };
 }
 
+/// Lender: the lock deadline passed without the full collateral, so the contract refunds the
+/// principal and the guardians' fees. Any ZEC the borrower sent goes back to it (a release
+/// the guardians allow once the contract says Cancelled).
+export async function lenderCancel(id: Hex, who: TestLender = "lender") {
+  const tx = await lenders[who].loans("cancel", [id]);
+  await loanbook.event(id, { actor: "lender", kind: "cancelled", data: { status: "Cancelled", tx } });
+  return { tx };
+}
+
 /// The test wallet sends the collateral to the vault (regtest faucet, or the testnet test
 /// wallet), standing in for the borrower's own Zcash wallet.
 export async function lockFromTestWallet(id: Hex, vault: string, collateralZat: bigint) {
@@ -241,9 +250,13 @@ async function approvedAndSent(p: Party, spendId: string) {
 export async function borrowerRelease(id: Hex) {
   const doc = await loanbook.get(id);
   if (!doc.accept) throw new Error("the loan has no accepted payout address");
+  // The guardians read Base through public RPCs that can trail a block: propose only once
+  // they will see Repaid (or Cancelled) too, so the log shows no stale refusal first.
+  await until("Base to show the loan repaid or cancelled", async () => ["Repaid", "Cancelled"].includes((await getLoan(id)).statusName), 120_000, 2000);
   const borrower = await partyFor(id, "borrower");
   const total = BigInt((await borrower.balance()).total_zat);
-  const spend = await proposeAll(borrower, [], doc.accept.borrowerZec, total, "Hypothec: released after repayment");
+  if (total === 0n) throw new Error("the vault is empty: nothing to release");
+  const spend = await proposeAll(borrower, [], doc.accept.borrowerZec, total, "Hypothec: collateral returned");
   const txid = await approvedAndSent(borrower, spend.id);
   await loanbook.event(id, { actor: "borrower", kind: "released", data: { status: "Released", zcashTx: txid } });
   return { txid, amountZat: spend.outputs[0].amount_zat, feeZat: Number(spend.fee) };

@@ -142,7 +142,7 @@
   /* --------------------------------------------------- one loan's step -- */
 
   const QUEST = ['request', 'accept', 'keys', 'lock', 'receive', 'repay', 'release']
-  const AT = { none: 0, 'wait-offer': 1, accept: 1, keys: 2, 'wait-fund': 3, lock: 3, confirming: 4, active: 5, repaid: 6, closed: 7, liquidated: 5 }
+  const AT = { none: 0, 'wait-offer': 1, accept: 1, keys: 2, 'wait-fund': 3, lock: 3, confirming: 4, active: 5, repaid: 6, refund: 6, closed: 7, liquidated: 5 }
 
   function loanStep(s, l) {
     const on = l.onchain.status
@@ -153,20 +153,22 @@
     if (on === 'Funded') return BigInt(l.spendableZat) >= BigInt(l.offer.collateralZat) ? 'confirming' : 'lock'
     if (on === 'Active') return 'active'
     if (on === 'Repaid') return 'repaid'
+    // Cancelled before the lock completed: any ZEC already sent goes back to the borrower.
+    if (on === 'Cancelled') return BigInt(l.vaultZat) > 0n ? 'refund' : 'closed'
     return 'none'
   }
 
   /* The borrow's step: offers waiting on the borrower come first; otherwise the step of
      the piece furthest behind, so a panel that needs the borrower stays up until every
      piece is past it. Running, repaid and liquidated pieces share the loans panel. */
-  const ORDER = ['wait-offer', 'accept', 'keys', 'wait-fund', 'lock', 'confirming', 'active', 'repaid', 'liquidated', 'closed']
+  const ORDER = ['wait-offer', 'accept', 'keys', 'wait-fund', 'lock', 'confirming', 'active', 'repaid', 'refund', 'liquidated', 'closed']
   function basketStep(s, b) {
     if (!b) return 'none'
     const steps = b.pieces.map((p) => (p.loan ? (loanById(s, p.loan) ? loanStep(s, loanById(s, p.loan)) : 'accept') : 'wait-offer'))
     if (steps.every((x) => x === 'closed' || x === 'liquidated')) return 'closed'
     if (steps.includes('accept')) return 'accept'
     const behind = steps.filter((x) => x !== 'closed' && x !== 'liquidated').sort((a, c) => ORDER.indexOf(a) - ORDER.indexOf(c))[0]
-    return behind === 'repaid' ? 'active' : behind
+    return behind === 'repaid' || behind === 'refund' ? 'active' : behind
   }
 
   function paintQuest(step) {
@@ -275,6 +277,7 @@
       case 'accept': return 'Accepted the terms and both guardians, and signed a fresh ZEC payout address'
       case 'vault': return `Vault made by all four: ${esc(short(d.address))}`
       case 'funded': return 'Put the USDC into the loan contract'
+      case 'cancelled': return `Not locked by the deadline: cancelled and refunded on Base${link(d.tx, 'tx')}`
       case 'waiting': return `Waiting: ${esc(d.reason)}`
       case 'lock-confirmed': return `Saw ${esc(zec(d.vaultZat))} locked and confirmed it on Base${link(d.tx, 'tx')}`
       case 'lent': return 'USDC received from the contract'
@@ -687,7 +690,7 @@
   const statusWord = (s, l) => {
     if (!l) return 'Waiting for the desk'
     const st = loanStep(s, l)
-    return { accept: 'Offered: accept it', keys: 'Making the vault', 'wait-fund': 'Desk funding', lock: 'Waiting for your ZEC', confirming: 'Guardians checking', active: l.overdue ? 'Overdue' : 'Running', repaid: 'Repaid: take your ZEC back', closed: 'Released', liquidated: 'Liquidated' }[st] || l.onchain.status
+    return { accept: 'Offered: accept it', keys: 'Making the vault', 'wait-fund': 'Desk funding', lock: 'Waiting for your ZEC', confirming: 'Guardians checking', active: l.overdue ? 'Overdue' : 'Running', repaid: 'Repaid: take your ZEC back', refund: 'Cancelled: take your ZEC back', closed: 'Released', liquidated: 'Liquidated' }[st] || l.onchain.status
   }
 
   /* A ZIP 321 payment request paying every vault waiting for its ZEC, in one transaction. */
@@ -766,7 +769,7 @@
         const tone = l.overdue || st === 'liquidated' ? 'bad' : st === 'active' && l.risk?.ltvBps >= l.offer.marginLtvBps ? 'warn' : st === 'closed' ? '' : 'good'
         const action =
           st === 'active' ? `<button class="btn btn-primary btn-sm" type="button" data-act="borrower/repay" data-loan="${l.id}"${busy ? ' disabled' : ''}><span>Repay</span></button>`
-          : st === 'repaid' ? `<button class="btn btn-primary btn-sm" type="button" data-act="borrower/release" data-loan="${l.id}"${busy ? ' disabled' : ''}><span>Get ZEC back</span></button>`
+          : st === 'repaid' || st === 'refund' ? `<button class="btn btn-primary btn-sm" type="button" data-act="borrower/release" data-loan="${l.id}"${busy ? ' disabled' : ''}><span>Get ZEC back</span></button>`
           : ''
         return `<div class="mini-row"><span><b>${esc(l.deskName)}</b></span><span>${usdc(l.offer.principalUsdc)}</span><span>${ended(l) ? 'Settled' : usdc(left)}</span><span>${due(l.offer.dueAt)}</span><span>${l.risk && st === 'active' ? pct(l.risk.ltvBps) : DASH}</span><span><span class="pill${tone ? ` pill-${tone}` : ''}">${esc(statusWord(s, l))}</span></span><span class="mini-act">${action}</span></div>`
       })
@@ -891,8 +894,13 @@
             const tone = ltv == null ? '' : ltv >= l.offer.liquidationLtvBps ? 'bad' : ltv >= l.offer.marginLtvBps ? 'warn' : 'good'
             const canFund = on === 'Accepted' && !!l.vault
             const canLiquidate = on === 'Active' && !!l.risk?.liquidationRule
+            // The lock deadline passed without the full collateral: take the USDC back. (Two
+            // minutes' margin: the contract goes by Base's clock, which can trail this one.)
+            const canCancel = on === 'Funded' && Date.now() / 1000 > Number(l.offer.lockBy) + 120 && BigInt(l.spendableZat) < BigInt(l.offer.collateralZat)
             const action = canFund
               ? `<button class="btn btn-primary" type="button" data-act="lender/fund" data-loan="${l.id}"${busy ? ' disabled' : ''}><span>Fund</span></button>`
+              : canCancel
+                ? `<button class="btn btn-ghost" type="button" data-act="lender/cancel" data-loan="${l.id}"${busy ? ' disabled' : ''}><span>Cancel and refund</span></button>`
               : canLiquidate
                 ? `<button class="btn btn-danger" type="button" data-act="lender/liquidate" data-loan="${l.id}"${busy ? ' disabled' : ''}><span>Liquidate</span></button>`
                 : `<button class="btn btn-ghost" type="button" data-show="${l.id}"><span>View</span></button>`
@@ -1191,6 +1199,14 @@
       await W.fund(l.id)
       await post('lender/funded', { loan: l.id })
       toast('Funded. The USDC waits in the contract until the guardians see the ZEC')
+    },
+    'lender/cancel': async (btn) => {
+      const l = loanById(last, btn.dataset.loan)
+      needWallet(l.offer.lender, 'the desk')
+      confirm('Cancel the loan on Base')
+      await W.cancel(l.id)
+      await post('lender/cancelled', { loan: l.id })
+      toast('Cancelled. The USDC and fees are back in your wallet; any ZEC sent goes back to the borrower')
     },
   }
 

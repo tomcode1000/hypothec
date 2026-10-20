@@ -132,6 +132,29 @@ their figures in rounded pills; on Markets, featured cards for the three best ra
 chips (all, instant, under 30 days, 30 days and over) with a search, and taller rows with
 each desk's monogram. Larger corner radii throughout. Our colours kept.
 
+**D22. Guardians: an operator list, chosen per desk, paid 0.10% each (19 Oct, user).** A
+guardian registers itself in the loanbook, signed with its Base key: name, operator, fee
+and a sha256 fingerprint of the rules code it runs; it heartbeats every 30 s and shows
+online while heartbeats are under 90 s old. A desk names two online guardians that are
+different from each other and from itself; every offer carries them and the borrower
+accepts them on Base. The contract pays each guardian 0.10% of the principal at
+confirmLock, from the desk's funding (`fundingAmount` = principal + 2 fees; refunded with
+it on cancel). A flat fee, the same whether the loan is repaid or liquidated, so a
+guardian never earns more by liquidating. Hypothec may run at most one guardian in
+production (two would give one company and a desk 3 of 4 keys); in the demo the team runs
+both, said on the Guardians page. Bond and slashing, attested code and an on-chain price
+are next (docs/DESIGN.md section 7).
+
+**D23. A lock that never completes gives the borrower's ZEC back (20 Oct).** Found when
+checking deposits: a borrower who sent part of the collateral, then let the lock deadline
+pass, could not get it back. The desk cancels and the contract refunds it, but the
+guardians released only on Repaid, so the ZEC stayed in the vault unless the desk agreed
+to co-sign. Now the guardians treat Cancelled like Repaid for a release (the same checks:
+one output, the borrower's signed address, everything but the fee). Safe because a
+cancelled loan never paid the borrower any USDC. Desk agents cancel on their own once the
+deadline passes; a desk on a browser wallet gets a "Cancel and refund" button; the
+borrower gets "Get ZEC back". Tested: flow.ts `cancel`.
+
 **D10. Desk, not pool (8 Oct; decided 14 Oct with D14).** The borrower app shows
 the desk like a pool card (available USDC, rate, term, start LTV, price, Borrow), but the
 money is one lender's. A depositor pool would need someone to hold the lender's key

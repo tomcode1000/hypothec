@@ -10,12 +10,14 @@
 //   ts-node src/flow.ts basket      one borrow of 5 USDC filled from two desks' orders (D16):
 //                                   two loans, two vaults, locked together; one is repaid
 //                                   and released, the other goes overdue and is liquidated
+//   ts-node src/flow.ts cancel      half the ZEC sent, lock deadline passes -> the desk cancels
+//                                   and is refunded -> the guardians return the ZEC
 // Needs: e2e/stack.sh running in WSL (fresh), and `serve.ts all --fresh` running.
 import { formatUnits } from "viem";
-import { getLoan, isOverdue, usdcBalance } from "./base";
+import { chainNow, getLoan, isOverdue, usdcBalance } from "./base";
 import { BASE_ADDRESS } from "./config";
 import {
-  borrowerAccept, borrowerRelease, borrowerRepay, keySetup, lenderFund, lenderLiquidate,
+  borrowerAccept, borrowerRelease, borrowerRepay, keySetup, lenderCancel, lenderFund, lenderLiquidate,
   lenderOffer, loanbook, lockFromTestWallet, lockManyFromTestWallet, openTestDesk, setPriceOverride,
   sizingPriceUsd, topUpFromTestWallet, until, type TestLender,
 } from "./actions";
@@ -26,7 +28,7 @@ import { zecPrice } from "./price";
 import { termsOf } from "./referee";
 
 const path = process.argv[2] ?? "repay";
-const PATHS = ["repay", "liquidate", "topup", "deadline", "basket"];
+const PATHS = ["repay", "liquidate", "topup", "deadline", "basket", "cancel"];
 if (!PATHS.includes(path)) throw new Error(`usage: flow.ts ${PATHS.join("|")}`);
 const PRINCIPAL = 5_000_000n; // 5 USDC (docs/DECISIONS.md D6)
 /*
@@ -198,7 +200,54 @@ async function basket() {
   console.log("\nFLOW BASKET: OK");
 }
 
-(path === "basket" ? basket() : main()).catch((e) => {
+/// A lock that never completes: the borrower sends half the ZEC, the deadline passes, the
+/// desk cancels and gets its USDC back, and the guardians return the ZEC to the borrower.
+async function cancelPath() {
+  setPriceOverride(null);
+  step("The test lender opens a 10-minute desk (its lock window is 5 minutes)");
+  const desk = await openTestDesk({ termSeconds: SHORT_TERM_SECONDS });
+
+  step("The desk offers 5 USDC; the borrower accepts; the four make the vault");
+  const { id, offer } = await lenderOffer(PRINCIPAL, desk);
+  await borrowerAccept(id, offer);
+  const { vault } = await keySetup(id);
+  console.log(`loan ${id}: lock ${Number(offer.collateralZat) / 1e8} ZEC by ${new Date(Number(offer.lockBy) * 1000).toISOString()}`);
+
+  step("The desk funds the contract");
+  const deskBefore = await usdcBalance(BASE_ADDRESS.lender);
+  await lenderFund(id, PRINCIPAL);
+
+  const half = BigInt(offer.collateralZat) / 2n;
+  step(`Borrower sends only half the collateral (${Number(half) / 1e8} ZEC) and stops`);
+  await lockManyFromTestWallet([{ id, vault, zat: half }]);
+  const waitMs = Number(offer.lockBy) * 1000 - Date.now() + 30_000;
+  console.log(`the guardians wait for the rest; the lock deadline passes in ${Math.max(0, Math.round(waitMs / 1000))} s`);
+  await new Promise((r) => setTimeout(r, Math.max(0, waitMs)));
+  // The contract judges the deadline by Base's clock, not this machine's.
+  await until("Base's clock to pass the lock deadline", async () => (await chainNow()) > Number(offer.lockBy), 600_000, 5000);
+  if ((await getLoan(id)).statusName !== "Funded") throw new Error("the loan should still be Funded: the lock never completed");
+
+  step("The desk cancels: the contract refunds the principal and the guardians' fees");
+  console.log((await lenderCancel(id)).tx);
+  await until("the desk's refund to show", async () => (await usdcBalance(BASE_ADDRESS.lender)) >= deskBefore, 120_000, 3000);
+  console.log("the desk has its principal and the guardians' fees back");
+
+  step("Borrower asks for its ZEC back; the guardians check the contract says Cancelled and sign");
+  const r = await borrowerRelease(id);
+  console.log(`release tx ${r.txid}: ${r.amountZat} zat to the borrower, fee ${r.feeZat}`);
+  if (BigInt(r.amountZat) < half - 100_000n) throw new Error("the borrower did not get its ZEC back");
+
+  step("Both guardians signed the release; the log");
+  const events = await loanbook.events(id);
+  const signed = events.filter((e) => e.kind === "approve-release").length;
+  if (signed < 2) throw new Error(`expected both guardians to sign the release, saw ${signed}`);
+  for (const ev of events) {
+    console.log(`${new Date(ev.at).toISOString()} ${ev.actor.padEnd(8)} ${ev.kind.padEnd(22)} ${JSON.stringify(ev.data)}${ev.sig ? " [signed]" : ""}`);
+  }
+  console.log("\nFLOW CANCEL: OK");
+}
+
+(path === "basket" ? basket() : path === "cancel" ? cancelPath() : main()).catch((e) => {
   console.error(e);
   process.exit(1);
 });

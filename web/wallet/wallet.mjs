@@ -155,6 +155,9 @@ export async function fund(id) {
   return { approve: a, fund: f }
 }
 
+/** After the lock deadline, with the collateral not all in: the contract refunds the desk. */
+export const cancel = (id) => loans('cancel', [id])
+
 /* ------------------------------------------------------------ borrower -- */
 
 export const accept = (id, payoutTo) => loans('accept', [id, getAddress(payoutTo)])

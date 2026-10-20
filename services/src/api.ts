@@ -15,10 +15,10 @@ import { createServer, type IncomingMessage, type ServerResponse } from "http";
 import { existsSync, readFileSync, statSync } from "fs";
 import { extname, join, normalize } from "path";
 import { getAddress, isAddress, type Hex } from "viem";
-import { getLoan, isOverdue, usdcBalance } from "./base";
+import { chainNow, getLoan, isOverdue, usdcBalance } from "./base";
 import { BASE_ADDRESS, baseAddress, EXPLORER, LOANS, TEST_ZEC_ADDRESS, USDC } from "./config";
 import {
-  borrowerRelease, buildOffer, keySetup, lenderFund, lenderLiquidate, lenderOffer, loanbook,
+  borrowerRelease, buildOffer, keySetup, lenderCancel, lenderFund, lenderLiquidate, lenderOffer, loanbook,
   lockManyFromTestWallet, setPriceOverride, testLenderOf, topUpFromTestWallet,
 } from "./actions";
 import { DEMO_TERMS, MIN_TERM_SECONDS, quote, topUpToStartZat, type DeskTerms } from "./desks";
@@ -85,8 +85,13 @@ const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
 const deskOf = <D extends { owner: string }>(desks: D[], owner?: string) => (owner ? desks.find((d) => same(d.owner, owner)) ?? null : null);
 const OPEN = ["Offered", "Accepted", "Funded", "Active", "Repaid"];
 
-/// A loan is over once its ZEC went back (released) or was liquidated, or it was cancelled.
-const ended = (doc: LoanDoc, onchain: string) => doc.status === "Released" || onchain === "Liquidated" || onchain === "Cancelled";
+/// A loan is over once its ZEC went back (released) or was liquidated, or it was cancelled
+/// with an empty vault. A cancelled loan whose vault holds ZEC (a lock that never completed)
+/// stays open until the borrower takes the ZEC back.
+const ended = (doc: LoanDoc, onchain: string, vaultZat: bigint) =>
+  doc.status === "Released" || onchain === "Liquidated" || (onchain === "Cancelled" && vaultZat === 0n);
+/// The contract states in which the vault's ZEC goes back to the borrower.
+const RELEASABLE = ["Repaid", "Cancelled"];
 
 /// Baskets survive an API restart through the loanbook: each loan names its basket.
 async function recoverBaskets() {
@@ -143,7 +148,7 @@ async function loanView(doc: LoanDoc, desks: DeskTerms[], price: Price) {
     vault: doc.vault?.address ?? null,
     loanbookStatus: doc.status,
     onchain: { status: onchain.statusName, repaid: onchain.repaid, payoutTo: onchain.payoutTo, lockA: onchain.lockA, lockB: onchain.lockB, liqA: onchain.liqA, liqB: onchain.liqB },
-    ended: ended(doc, onchain.statusName),
+    ended: ended(doc, onchain.statusName, vaultZat),
     vaultZat,
     spendableZat: balance?.spendable_zat ?? 0,
     overdue,
@@ -256,7 +261,9 @@ async function guardianChecks(doc: LoanDoc, onchain: Awaited<ReturnType<typeof g
   const isLiq = open ? open.outputs.some((o) => o.address === doc.offer.lenderZec) : false;
 
   const release: Check[] = [
-    { label: "The contract says repaid", ok: on === "Repaid" ? true : on === "Liquidated" ? false : null, detail: `${Number(onchain.repaid) / 1e6} of ${Number(doc.offer.owedUsdc) / 1e6} USDC repaid` },
+    on === "Cancelled"
+      ? { label: "The contract says cancelled", ok: true, detail: "the lock never completed; no USDC was paid out" }
+      : { label: "The contract says repaid", ok: on === "Repaid" ? true : on === "Liquidated" ? false : null, detail: `${Number(onchain.repaid) / 1e6} of ${Number(doc.offer.owedUsdc) / 1e6} USDC repaid` },
   ];
   if (open && !isLiq) {
     const o = open.outputs;
@@ -339,7 +346,11 @@ async function openBasketOf(borrower: string) {
     for (const p of b.pieces) {
       if (!p.loan) return b;
       const doc = docs.find((d) => d.id === p.loan);
-      if (doc && !ended(doc, (await getLoan(doc.id)).statusName)) return b;
+      if (!doc) continue;
+      const on = (await getLoan(doc.id)).statusName;
+      // A cancelled loan still holding ZEC keeps its borrow open until the ZEC goes back.
+      const zat = on === "Cancelled" && doc.vault ? BigInt((await (await partyFor(doc.id, "borrower")).balance().catch(() => ({ total_zat: 0 }))).total_zat) : 0n;
+      if (!ended(doc, on, zat)) return b;
     }
   }
   return null;
@@ -421,6 +432,8 @@ async function act(path: string, body: Record<string, unknown>) {
     }
     case "/api/borrower/release": {
       const doc = await loanDoc(body);
+      if (doc.status === "Released") throw new Error("this vault was already released");
+      if (!RELEASABLE.includes((await getLoan(doc.id)).statusName)) throw new Error("the ZEC comes back once the loan is repaid (or cancelled before it started)");
       return run("release", [doc.id], () => borrowerRelease(doc.id));
     }
     case "/api/borrower/release-all": {
@@ -431,7 +444,7 @@ async function act(path: string, body: Record<string, unknown>) {
       for (const id of ids) {
         const doc = await loanbook.get(id).catch(() => null);
         if (!doc || doc.status === "Released") continue;
-        if ((await onchainStatus(id, "Repaid").catch(() => null)) === null) continue;
+        if (!RELEASABLE.includes((await getLoan(id).catch(() => null))?.statusName ?? "")) continue;
         if (jobs.some((j) => !j.done && j.name === "release" && j.loans.includes(id))) continue;
         ready.push(id);
       }
@@ -491,6 +504,12 @@ async function act(path: string, body: Record<string, unknown>) {
       await onchainStatus(doc.id, "Funded");
       await loanbook.event(doc.id, { actor: "lender", kind: "funded", data: { status: "Funded" } });
       return { funded: true };
+    }
+    case "/api/lender/cancelled": {
+      const doc = await loanDoc(body);
+      await onchainStatus(doc.id, "Cancelled");
+      await loanbook.event(doc.id, { actor: "lender", kind: "cancelled", data: { status: "Cancelled" } });
+      return { cancelled: true };
     }
     case "/api/lender/price": {
       if (PUBLIC && (!DEMO_TOKEN || body.token !== DEMO_TOKEN)) throw new Error("The demo price controls are off on the public site.");
@@ -560,6 +579,24 @@ async function agentTick() {
       console.log(`[agent] ${deskOf(desks, doc.offer.lender)?.name} funded ${doc.id}`);
     } catch (e) {
       console.log(`[agent] funding ${doc.id} failed: ${(e as Error).message.split("\n")[0]}`);
+    } finally {
+      agentBusy.delete(key);
+    }
+  }
+  // Cancel: the lock deadline passed without the full collateral. The desk takes its USDC
+  // back; any ZEC the borrower sent goes back to the borrower.
+  const now = await chainNow().catch(() => 0);
+  for (const doc of await loanbook.all()) {
+    const who = testLenderOf(doc.offer.lender);
+    const key = `cancel:${doc.id}`;
+    if (!who || doc.status !== "Funded" || now <= Number(doc.offer.lockBy) || agentBusy.has(key)) continue;
+    if ((await getLoan(doc.id)).statusName !== "Funded") continue;
+    agentBusy.add(key);
+    try {
+      await lenderCancel(doc.id, who);
+      console.log(`[agent] ${deskOf(desks, doc.offer.lender)?.name} cancelled ${doc.id}: not locked by the deadline`);
+    } catch (e) {
+      console.log(`[agent] cancelling ${doc.id} failed: ${(e as Error).message.split("\n")[0]}`);
     } finally {
       agentBusy.delete(key);
     }

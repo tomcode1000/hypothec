@@ -60,6 +60,12 @@ export async function fundingAmount(id: Hex): Promise<bigint> {
   return (await retry(() => pub.readContract({ address: LOANS, abi: LOANS_ABI, functionName: "fundingAmount", args: [id] }))) as bigint;
 }
 
+/// Base's own clock (the latest block's time, in seconds): what the contract's deadlines are
+/// judged by, whatever this machine's clock says.
+export async function chainNow(): Promise<number> {
+  return Number((await retry(() => pub.getBlock({ blockTag: "latest" }))).timestamp);
+}
+
 export async function isOverdue(id: Hex): Promise<boolean> {
   return (await retry(() => pub.readContract({ address: LOANS, abi: LOANS_ABI, functionName: "isOverdue", args: [id] }))) as boolean;
 }

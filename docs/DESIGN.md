@@ -42,7 +42,10 @@ collateral stays in Zcash's shielded pool, in a vault no single party can move.
 7. **Repay.** One USDC permit signature and one transaction repay every loan of the
    borrow (`repayAllWithPermit`), each lender paid what is left on its own loan. Both
    guardians then sign each vault's release, only to the address the borrower signed.
-8. **Or liquidate.** Past the liquidation line or the due date, the desk proposes one
+8. **If the lock never completes.** After the lock deadline the desk cancels and the
+   contract refunds it. Any ZEC the borrower did send comes back to it: the guardians
+   release on Cancelled exactly as on Repaid.
+9. **Or liquidate.** Past the liquidation line or the due date, the desk proposes one
    Zcash transaction paying itself what it is owed and the rest to the borrower. Both
    guardians check it and sign; they record the liquidation on Base.
 
@@ -73,7 +76,7 @@ Any 3 of the 4 keys:
 
 | Together | Can | Used for |
 |---|---|---|
-| Borrower + both guardians | release | after the contract says Repaid |
+| Borrower + both guardians | release | after the contract says Repaid (or Cancelled) |
 | Desk + both guardians | liquidate | past the line or the due date |
 | Borrower + desk + one guardian | close by agreement | when a guardian is offline |
 | Both guardians alone | nothing | 2 of 4 |

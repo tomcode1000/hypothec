@@ -134,10 +134,14 @@ export function startReferee(role: "refereeA" | "refereeB", loanbook: LoanbookCl
       let kind: "release" | "liquidation";
       let reason: string | null;
       let evidence: Fields = {};
-      if (onchain.statusName === "Repaid") {
+      if (onchain.statusName === "Repaid" || onchain.statusName === "Cancelled") {
+        // Repaid, or cancelled (the lock never completed and the desk took its USDC back):
+        // either way the ZEC is the borrower's, and goes only to its signed address.
         kind = "release";
         reason = checkRelease(s.outputs, terms, vaultZat);
-        evidence = { rule: "repaid on Base", repaidUsdc: onchain.repaid.toString() };
+        evidence = onchain.statusName === "Repaid"
+          ? { rule: "repaid on Base", repaidUsdc: onchain.repaid.toString() }
+          : { rule: "cancelled on Base: no USDC was paid out to the borrower" };
       } else if (onchain.statusName === "Active") {
         kind = "liquidation";
         const price = await zecPrice().catch((e) => e as Error);

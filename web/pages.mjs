@@ -287,7 +287,7 @@ const log = () =>
     ${stage('release', 2, 'Before the ZEC goes back', 'Repaid, and only to the borrower.')}
     ${stage('liquidation', 3, 'Before a liquidation', 'Past the line, surplus in the same move.')}
   </div>
-  <h2 class="section-h">Operator list</h2>
+  <h2 class="section-h">Operator list <a class="section-link" href="docs.html#operators">Run a guardian →</a></h2>
   <div class="operators" data-app="operators"><div class="feat feat-skel"></div><div class="feat feat-skel"></div></div>
   ${card(`${cardHead('Signed log', '', pill('—', '', 'log-count'))}<div class="log" data-app="log"></div>`)}`,
   })
@@ -297,6 +297,21 @@ const logWithRails = () =>
   log().replace('<div data-app="log-side"></div>', `<div data-rail-for="borrower">${borrowerSide('Guardians')}</div><div data-rail-for="desk" hidden>${deskSide('Guardians')}</div>`)
 
 /* ------------------------------------------------------------------ docs -- */
+
+const OPERATOR_NEEDS = [
+  ['A server', 'Any small Linux machine that stays on: a VPS or a cloud instance. 2 GB of memory is enough.'],
+  ['A Base key', 'One wallet key, with a little ETH for the confirmations it sends. Its fees arrive at this address.'],
+  ['Zcash access', 'A public lightwalletd such as testnet.zec.rocks. No Zcash node of your own.'],
+  ['Two addresses', 'The Hypothec loanbook (orders, signed entries, the operator list) and the relay (carries encrypted messages between a vault’s four key holders).'],
+  ['The code', 'Rust, Node.js 22 and Python 3.10, or the Docker image from the repository.'],
+]
+const OPERATOR_STEPS = [
+  ['Build', 'Clone the repository and build the key-share service and the rules engine.'],
+  ['Add your key', 'Put the guardian’s Base key in ~/.hypothec/testnet-wallets.json, under refereeA or refereeB. It never leaves the server.'],
+  ['Start both parts', 'The key-share service first, then the guardian, pointed at the loanbook and the relay.'],
+  ['It registers', 'The guardian signs its name, operator and a fingerprint of the rules code into the operator list, then heartbeats every 30 seconds.'],
+  ['Desks choose it', 'It shows Online on the Guardians page. Every loan from a desk that names it is guarded from then on.'],
+]
 
 const DOCS = [
   ['overview', 'Overview', `<p>Hypothec lends USDC on Base against ZEC that stays shielded on Zcash. Each loan's collateral sits in its own vault: one threshold key with four holders (the borrower, the lending desk and two guardians), any three of whom can sign. No single party, and no two of them, can move it alone.</p>
@@ -310,6 +325,29 @@ const DOCS = [
       <tbody>${SEES.map(([w, y, n]) => `<tr><th scope="row">${w}</th><td>${y}</td><td>${n}</td></tr>`).join('')}</tbody>
     </table></div>`],
   ['guardians', 'Guardians', `<p>A guardian is an operator from the Hypothec list running the published rules engine. It confirms a lock only when it sees the full amount in the vault; it releases only after the contract says repaid, and only to the borrower's signed address; it liquidates only past the published line, or after the due date, with the surplus to the borrower in the same transaction. It signs every decision, and the reason, into the log.</p>`],
+  ['operators', 'Run a guardian', `<p>A guardian is a program, not a person. An operator runs it on their own server; from then on it watches every loan that names it and signs or refuses by the published rules, with nobody approving anything by hand. Two operators can guard every loan on Hypothec.</p>
+    <p>The operator sets up one Base key, once: it is the guardian's identity on the operator list and the address its fees are paid to. Each loan's vault needs a fresh key share, and the guardian's key-share service makes it automatically when the loan starts and keeps it on the operator's server; it never leaves.</p>
+    <h3 class="sub-h">What you need</h3>
+    <dl class="facts">${OPERATOR_NEEDS.map(([k, d]) => `<div><dt>${k}</dt><dd>${d}</dd></div>`).join('')}</dl>
+    <h3 class="sub-h">Start it</h3>
+    <ol class="steps">${OPERATOR_STEPS.map(([t, b], i) => `<li><span class="steps-n">${String(i + 1).padStart(2, '0')}</span><h3>${t}</h3><p>${b}</p></li>`).join('')}</ol>
+    <pre class="code"><code>git clone --recurse-submodules https://github.com/tomcode1000/hypothec
+cd hypothec &amp;&amp; cargo build --release -p hypothec-core
+(cd services &amp;&amp; npm ci)
+
+# the key-share service (one share per loan, kept on this server)
+ZAFE_NETWORK=test ZAFE_RELAY=&lt;relay URL&gt; PARTY_BIN=target/release/hypothec-party \\
+  STACK_STATE=~/guardian-state python3 e2e/control.py &amp;
+
+# the guardian
+cd services
+HYPOTHEC_LOANBOOK=&lt;loanbook URL&gt; HYPOTHEC_OPERATOR="Your company" \\
+  ZAFE_NETWORK=test npx ts-node src/serve.ts refereeA</code></pre>
+    <h3 class="sub-h">Pay and uptime</h3>
+    <p>Each guardian earns 0.10% of every loan's principal it guards, paid by the loan contract on Base when it confirms the lock, from the desk's funding. The fee is the same whether the loan is repaid or liquidated, so a guardian never gains by liquidating.</p>
+    <p>The guardian sends a signed heartbeat every 30 seconds. While they arrive it shows Online on the <a href="log.html">Guardians</a> page and desks can choose it; if they stop for 90 seconds it shows Offline and new desks cannot pick it. Loans it already guards still close without it: the borrower, the desk and the other guardian are three of four keys.</p>
+    <p>The full checks it runs, and why it refuses, are in the repository: <a href="https://github.com/tomcode1000/hypothec/blob/main/docs/GUARDIANS.txt">GUARDIANS.txt</a>, <a href="https://github.com/tomcode1000/hypothec/blob/main/docs/DESIGN.md">DESIGN.md</a>.</p>
+    <p class="note">In this demo both guardians are run by the Hypothec team, on the same server as the website, and its loanbook and relay are not open to outside operators yet. In production each guardian is an independent company, and Hypothec runs at most one.</p>`],
   ['limits', 'Status and limits', `<dl class="disclosures">${DISCLOSURES.map(([k, d]) => `<div><dt>${k}</dt><dd>${d}</dd></div>`).join('')}</dl>`],
 ]
 

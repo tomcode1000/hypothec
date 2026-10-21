@@ -19,10 +19,13 @@ import { borrowDialog, borrowerSide, btn, card, cardHead, deskSide, guardian, he
 
 /* --------------------------------------------------------------- landing -- */
 
-const header = `<header class="site-head"><div class="shell site-head-in">
+/* A thin line above the header: what this build is, in one sentence. */
+const announce = `<div class="announce"><span class="dot dot-on"></span><b>Live on Zcash testnet and <span data-net-full>Base Sepolia</span>.</b><span class="announce-sub">Test coins only.</span><a href="markets.html">Open the app</a></div>`
+
+const header = `${announce}<header class="site-head"><div class="shell site-head-in">
   <a class="brand" href="index.html"><span class="mark">${MARK}</span><span>Hypothec</span></a>
-  <nav class="site-links" aria-label="Primary"><a href="docs.html">Docs</a><a href="log.html">Guardians</a></nav>
-  <div class="site-end">${btn('Open the app', { href: 'markets.html' })}</div>
+  <nav class="site-links" aria-label="Primary"><a href="markets.html">Markets</a><a href="loan.html">Portfolio</a><a href="log.html">Guardians</a><a href="docs.html">Docs</a></nav>
+  <div class="site-end"><button class="theme-dot" type="button" data-theme-toggle aria-label="Switch between light and dark"></button>${btn('Read the docs', { href: 'docs.html', tone: 'ghost' })}${btn('Open the app', { href: 'markets.html' })}</div>
 </div></header>`
 
 /* The loan's structure, as a term sheet would state it. No figure here: each desk
@@ -74,32 +77,110 @@ const DISCLOSURES = [
   ['Desks', 'Each desk lends its own money and does its own customer checks. There is no shared pool: pooling lenders would need a custodian for the lender’s key share.'],
 ]
 
+/* What Hypothec is, as three things a visitor can open. */
+const WHAT = [
+  ['The app', 'Borrow or lend today', 'Fill one borrow from several desks’ orders, or post your own order with your rate, term and loan-to-value levels.', 'Open the app', 'markets.html', ''],
+  ['The loan contract', 'The dollars, in the open', 'Terms, payout, repayment and the guardians’ fees live in one contract on <span data-net>Base</span>. It stores nothing about your ZEC.', 'Verify the contract', '#', 'data-live="contract" target="_blank" rel="noopener"'],
+  ['The guardians', 'Rules, not people', 'Two independent operators run published code. It signs only what the rules allow, and logs every decision with its reason.', 'See every decision', 'log.html', ''],
+]
+
+/* The postcard: what a loan on a public chain shows, next to what a Hypothec loan shows. */
+const POSTCARD_PUBLIC = [
+  ['Borrower', '0x9f3c…41aa'],
+  ['Collateral', '12.40 ETH'],
+  ['Where it came from', 'Every past transfer'],
+  ['Liquidates at', '$1,412 per ETH'],
+]
+const POSTCARD_SEALED = [
+  ['Collateral', 'Shielded on Zcash'],
+  ['Amount locked', '••••••'],
+  ['Where it came from', 'Shielded'],
+  ['The dollar loan', 'Public, on <span data-net>Base</span>'],
+]
+
+const TRUST = [
+  ['Three of four keys', 'Every vault needs three of its four holders to move. The desk with one guardian cannot; both guardians together cannot.'],
+  ['Code, not people', 'Guardians are software with a published fingerprint. Nobody at an operator reads your loan or clicks approve.'],
+  ['The surplus comes back', 'A liquidation pays the desk what it is owed and returns the rest to you in the same transaction, or no guardian signs it.'],
+]
+
+const pcRows = (rows, sealed) => rows.map(([k, v]) => `<div class="pc-row"><span>${k}</span><b${sealed && /•|Shielded/.test(v) ? ' class="sealed"' : ''}>${v}</b></div>`).join('')
+
 const index = () =>
   page({
     title: 'Private loans against ZEC',
     body: `${header}
-<main>
-  <section class="hero">${vaultLines({ cls: 'art-hero' })}<div class="shell hero-in">
-    <div class="hero-copy">
-      <p class="kicker">Private credit for Zcash holders</p>
-      <h1 class="h-hero">USDC loans against shielded ZEC.</h1>
-      <p class="lede">The collateral never leaves Zcash's shielded pool, and no single party can move it: not the borrower, not the lender, not Hypothec. Two independent guardians sign only what published rules allow.</p>
-      <div class="hero-cta">${btn('Open the app', { href: 'markets.html' })}${btn('Read the docs', { href: 'docs.html', tone: 'ghost' })}</div>
+<main class="land">
+  <section class="shell hero4">
+    <div class="hero-panel">${vaultLines({ cls: 'hero-art' })}
+      <div class="hero-copy4">
+        <a class="hero-tag" href="log.html"><span class="dot dot-on"></span>Guardians online <b data-live="guardians">—</b><span aria-hidden="true">→</span></a>
+        <h1 class="h-hero">Borrow dollars against ZEC that never leaves the shielded pool</h1>
+        <p class="lede">Your ZEC stays in Zcash’s shielded pool, in a vault made for one loan, and no single party can move it: not the lender, not Hypothec, not one guardian.</p>
+        <div class="hero-cta">${btn('Open the app', { href: 'markets.html' })}<a class="btn-link" href="docs.html">Read the docs <span aria-hidden="true">→</span></a></div>
+      </div>
+      <a class="hero-scroll" href="#what">Scroll to explore <span aria-hidden="true">↓</span></a>
     </div>
-    <div class="card hero-sheet">
-      <div class="card-head"><h2 class="h2">Loan structure</h2><span class="pill">Test build</span></div>
-      <dl class="facts">${STRUCTURE.map(([k, d]) => `<div><dt>${k}</dt><dd>${d}</dd></div>`).join('')}</dl>
+  </section>
+
+  <section class="shell what" id="what">
+    ${WHAT.map(([label, title, text, cta, href, attr]) => `<div class="what-col"><span class="label-caps">${label}</span><h3>${title}</h3><p>${text}</p><a class="btn-link" href="${href}" ${attr}>${cta} <span aria-hidden="true">→</span></a></div>`).join('')}
+  </section>
+
+  <section class="shell postcard">
+    <h2 class="h-display">On a public chain, every loan is a postcard. Hypothec seals the envelope.</h2>
+    <p class="section-lede">A loan in a public market shows who borrowed, against what, where the coins came from, and the price that wipes them out. With Hypothec the dollar side stays public and the collateral does not.</p>
+    <div class="pc">
+      <div class="pc-card"><span class="label-caps">What a crypto loan normally shows</span>${pcRows(POSTCARD_PUBLIC, false)}</div>
+      <div class="pc-card pc-sealed"><span class="label-caps">What a Hypothec loan shows</span>${pcRows(POSTCARD_SEALED, true)}</div>
     </div>
-  </div></section>
-  <section class="band"><div class="shell">
-    <div class="trio">${TRIO.map(([n, t, b]) => `<div><span class="trio-n">${n}</span><h3>${t}</h3><p>${b}</p></div>`).join('')}</div>
-    <p class="trio-more"><a href="docs.html#how">How a loan runs, step by step</a></p>
-  </div></section>
+  </section>
+
+  <section class="shell">
+    <div class="stage4">
+      <h2 class="h-display">Live on testnet</h2>
+      <p class="section-lede">Real orders, real vaults, real guardians. Test coins only.</p>
+      <div class="live">
+        <div class="bez"><div class="bez-in">
+          <span class="label-caps">Best rate</span>
+          <div class="live-big"><b data-live="rate">—</b><sup>APR</sup></div>
+          <p data-live="rate-desk">Loading the order book…</p>
+          ${btn('Borrow', { href: 'markets.html', wide: true })}
+        </div></div>
+        <div class="bez"><div class="bez-in">
+          <span class="label-caps">On offer now</span>
+          <div class="live-big"><b data-live="avail">—</b></div>
+          <p data-live="desks">Across the desks’ open orders</p>
+          ${btn('Post an order', { href: 'markets.html', tone: 'ghost', wide: true })}
+        </div></div>
+        <div class="bez"><div class="bez-in">
+          <span class="label-caps">Guardians</span>
+          <div class="live-big"><b data-live="guardians-big">—</b></div>
+          <p data-live="code">Signing by the published rules</p>
+          ${btn('See the signed log', { href: 'log.html', tone: 'ghost', wide: true })}
+        </div></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="shell steps4">
+    <h2 class="h-display">How a loan runs</h2>
+    <ol>${STEPS.map(([t, b], i) => `<li><span class="steps-n">${String(i + 1).padStart(2, '0')}</span><h3>${t}</h3><p>${b}</p></li>`).join('')}</ol>
+  </section>
+
+  <section class="shell trust">
+    <h2 class="h-display">No single party<br/>can move it</h2>
+    <div class="trust-cols">${TRUST.map(([t, b]) => `<div><h3>${t}</h3><p>${b}</p></div>`).join('')}</div>
+  </section>
 </main>
-<footer class="site-foot"><div class="shell site-foot-in">
-  <a class="brand" href="index.html"><span class="mark">${MARK}</span><span>Hypothec</span></a>
-  <nav class="site-foot-links" aria-label="Footer"><a href="markets.html">Markets</a><a href="docs.html">Docs</a><a href="log.html">Guardians</a></nav>
-  <p>Test build for the ZECATHON. Zcash testnet and <span data-net-full>Base Sepolia</span>; nothing here holds real money.</p>
+<footer class="foot4"><div class="shell">
+  <div class="foot4-top">
+    <div class="foot4-brand"><a class="brand" href="index.html"><span class="mark">${MARK}</span><span>Hypothec</span></a><p>Private dollar loans against shielded ZEC.</p></div>
+    <nav aria-label="Product"><b>Product</b><a href="markets.html">Markets</a><a href="loan.html">Portfolio</a><a href="log.html">Guardians</a></nav>
+    <nav aria-label="Learn"><b>Learn</b><a href="docs.html#how">How a loan runs</a><a href="docs.html#visibility">Who sees what</a><a href="docs.html#operators">Run a guardian</a><a href="docs.html#limits">Status and limits</a></nav>
+    <nav aria-label="Source"><b>Source</b><a href="https://github.com/tomcode1000/hypothec" target="_blank" rel="noopener">GitHub</a><a href="https://github.com/tomcode1000/hypothec/blob/main/docs/DESIGN.md" target="_blank" rel="noopener">Design</a><a href="https://github.com/tomcode1000/hypothec/blob/main/docs/DECISIONS.md" target="_blank" rel="noopener">Decisions</a></nav>
+  </div>
+  <p class="foot4-note">Test build for the ZECATHON, on Zcash testnet and <span data-net-full>Base Sepolia</span>. Nothing here holds real money. Not audited. Not investment advice.</p>
 </div></footer>`,
   })
 

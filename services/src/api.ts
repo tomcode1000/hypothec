@@ -625,13 +625,19 @@ const TYPES: Record<string, string> = {
   ".html": "text/html; charset=utf-8", ".css": "text/css", ".js": "text/javascript", ".svg": "image/svg+xml", ".png": "image/png",
 };
 
-function serveStatic(path: string, res: ServerResponse) {
+/// Link previews need absolute addresses: pages carry __SITE__ in their share tags, and it
+/// becomes this server's own address as the visitor (or a link scraper) reached it.
+function serveStatic(path: string, req: IncomingMessage, res: ServerResponse) {
   const file = normalize(join(WEB, path === "/" ? "index.html" : path));
   if (!file.startsWith(WEB) || !existsSync(file) || !statSync(file).isFile()) {
     res.writeHead(404).end("not found");
     return;
   }
-  res.writeHead(200, { "content-type": TYPES[extname(file)] ?? "application/octet-stream" }).end(readFileSync(file));
+  const type = TYPES[extname(file)] ?? "application/octet-stream";
+  if (extname(file) !== ".html") return void res.writeHead(200, { "content-type": type }).end(readFileSync(file));
+  const proto = String(req.headers["x-forwarded-proto"] ?? "http").split(",")[0];
+  const site = `${proto}://${req.headers["x-forwarded-host"] ?? req.headers.host ?? "127.0.0.1"}`;
+  res.writeHead(200, { "content-type": type }).end(readFileSync(file, "utf8").replaceAll("__SITE__", site));
 }
 
 async function body(req: IncomingMessage) {
@@ -644,7 +650,7 @@ recoverBaskets().finally(() =>
   createServer(async (req, res) => {
     const path = new URL(req.url ?? "/", "http://x").pathname;
     try {
-      if (!path.startsWith("/api/")) return serveStatic(path, res);
+      if (!path.startsWith("/api/")) return serveStatic(path, req, res);
       const out = req.method === "GET" && path === "/api/state" ? await snapshot() : await act(path, await body(req));
       if (path !== "/api/state") refreshState().catch(() => undefined); // show the action's effect promptly
       res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify(out, big));

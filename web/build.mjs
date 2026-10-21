@@ -11,7 +11,7 @@ import { pages } from './pages.mjs'
 */
 
 await mkdir(join(OUT, 'assets'), { recursive: true })
-for (const f of ['hypothec.css', 'app.js']) await copyFile(join(import.meta.dirname, 'assets', f), join(OUT, 'assets', f))
+for (const f of ['hypothec.css', 'app.js', 'og.png']) await copyFile(join(import.meta.dirname, 'assets', f), join(OUT, 'assets', f))
 await writeFile(join(OUT, 'assets', 'favicon.svg'), FAVICON)
 await build({
   entryPoints: [join(import.meta.dirname, 'wallet', 'wallet.mjs')],

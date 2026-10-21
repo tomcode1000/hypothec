@@ -239,7 +239,7 @@ const dialogHead = (id, title) => `<div class="card-head"><h2 class="h2" id="${i
  * Borrow, opened from a market row. The row's desk fills first; the other orders, ticked,
  * cover what it cannot (D16). Each piece is its own loan.
  */
-const borrowDialog = () => `<dialog class="dialog dialog-wide" data-app="borrow-dialog" aria-labelledby="borrow-title">
+const borrowDialog = () => `<dialog class="dialog dialog-wide" data-app="borrow-dialog" aria-labelledby="borrow-title"><div class="bezel">
   ${dialogHead('borrow-title', 'Borrow from <span data-app="desk-name">a desk</span>')}
   <div class="pad">
     <label class="field"><span>Amount</span><div class="amount"><input data-input="amount" type="number" min="0.1" step="0.1" value="5" inputmode="decimal"/><b data-sym>USDC</b></div></label>
@@ -254,13 +254,13 @@ const borrowDialog = () => `<dialog class="dialog dialog-wide" data-app="borrow-
     <div class="preflight" data-app="preflight-borrow"></div>
     ${btn('Request', { act: 'borrower/request', wide: true, key: 'ask-btn' })}
   </div>
-</dialog>`
+</div></dialog>`
 
 /**
  * Lend: post an order, or update yours. Opened from a market row it starts from that
  * desk's terms. Desks lend their own money; there is no shared pool (D10).
  */
-const lendDialog = () => `<dialog class="dialog dialog-wide" data-app="lend-dialog" aria-labelledby="lend-title">
+const lendDialog = () => `<dialog class="dialog dialog-wide" data-app="lend-dialog" aria-labelledby="lend-title"><div class="bezel">
   ${dialogHead('lend-title', '<span data-app="lend-title">Post an order</span>')}
   <div class="pad">
     <div class="desk-form">
@@ -283,7 +283,7 @@ const lendDialog = () => `<dialog class="dialog dialog-wide" data-app="lend-dial
     <div class="preflight" data-app="preflight-lend"></div>
     ${btn('Sign and post', { act: 'lender/desk', wide: true, key: 'desk-publish' })}
   </div>
-</dialog>`
+</div></dialog>`
 
 /** Portfolio has two sides; the tabs switch between them. */
 const portfolioTabs = (current) => `<nav class="tabs" aria-label="Portfolio">${[['Borrowing', 'loan.html'], ['Lending', 'desk.html']]

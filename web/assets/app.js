@@ -55,7 +55,39 @@
     }
   })
 
-  if (!view) return // the landing surface has nothing live
+  /* The landing page: its live stage, its chain and stablecoin words, and the contract
+     link, from the same state the app reads. Read every 20 seconds while it is open. */
+  if (!view) {
+    const live = (key, text) => $$(`[data-live="${key}"]`).forEach((el) => (el.textContent = text))
+    const landing = async () => {
+      try {
+        const s = await (await fetch('/api/state')).json()
+        const c = s.chain || {}
+        $$('[data-sym]').forEach((el) => (el.textContent = c.symbol || 'USDC'))
+        $$('[data-net]').forEach((el) => (el.textContent = c.short || 'Base'))
+        $$('[data-net-full]').forEach((el) => (el.textContent = c.label || 'Base Sepolia'))
+        $$('[data-live="contract"]').forEach((el) => (el.href = `${c.explorer}/address/${c.loans}`))
+        const open = (s.desks || []).filter((d) => BigInt(d.availableUsdc) > 0n).sort((a, b) => a.aprBps - b.aprBps)
+        const best = open[0]
+        const days = (t) => (t >= 86400 ? `${Math.round(t / 86400)} days` : `${Math.round(t / 60)} minutes`)
+        live('rate', best ? `${(best.aprBps / 100).toFixed(best.aprBps % 100 ? 1 : 0)}%` : '—')
+        live('rate-desk', best ? `${best.name}, ${days(best.termSeconds)}, liquidation at ${best.liquidationLtvBps / 100}% LTV` : 'No order is open right now.')
+        const avail = open.reduce((a, d) => a + BigInt(d.availableUsdc), 0n)
+        live('avail', `${Number(avail) / 1e6} ${c.symbol || 'USDC'}`)
+        live('desks', `Across ${open.length} desk${open.length === 1 ? '' : 's'}’ open orders`)
+        const g = s.guardians || []
+        const on = g.filter((x) => x.online).length
+        live('guardians', `${on} of ${g.length}`)
+        live('guardians-big', `${on} of ${g.length} online`)
+        if (g[0]?.code) live('code', `Rules code ${g[0].code.slice(0, 12)}…, the same on every guardian`)
+      } catch (e) {
+        live('rate-desk', 'The live figures are not reachable right now.')
+      }
+    }
+    landing()
+    setInterval(landing, 20_000)
+    return
+  }
 
   /* The log page keeps the rail of the surface the visitor came from. */
   const asDesk = new URLSearchParams(location.search).get('as') === 'desk'

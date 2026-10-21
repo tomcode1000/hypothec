@@ -93,12 +93,30 @@ const caret = `<svg class="caret" viewBox="0 0 12 12" fill="none" aria-hidden="t
 
 /* ------------------------------------------------------------------ pages -- */
 
+/* What a shared link says under its picture. */
+const SHARE_TEXT = 'Borrow dollars against ZEC that never leaves the shielded pool. One vault per loan, any 3 of 4 keys to move it: not the lender, not Hypothec, not one guardian alone. Live on testnet.'
+
 const head = (title) => `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
 <title>${title} · Hypothec</title>
+<meta name="description" content="${SHARE_TEXT}"/>
+<meta name="theme-color" content="#f4f3ef" media="(prefers-color-scheme: light)"/>
+<meta name="theme-color" content="#100f0e" media="(prefers-color-scheme: dark)"/>
+<meta property="og:type" content="website"/>
+<meta property="og:site_name" content="Hypothec"/>
+<meta property="og:title" content="Hypothec · Private dollar loans against shielded ZEC"/>
+<meta property="og:description" content="${SHARE_TEXT}"/>
+<meta property="og:image" content="__SITE__/assets/og.png"/>
+<meta property="og:image:width" content="1200"/>
+<meta property="og:image:height" content="630"/>
+<meta property="og:image:alt" content="Hypothec: private dollar loans against shielded ZEC"/>
+<meta name="twitter:card" content="summary_large_image"/>
+<meta name="twitter:title" content="Hypothec · Private dollar loans against shielded ZEC"/>
+<meta name="twitter:description" content="${SHARE_TEXT}"/>
+<meta name="twitter:image" content="__SITE__/assets/og.png"/>
 <link rel="icon" type="image/svg+xml" href="assets/favicon.svg"/>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>

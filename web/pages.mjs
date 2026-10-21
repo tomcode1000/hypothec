@@ -206,11 +206,24 @@ const marketsPage = () =>
     title: 'Markets',
     view: 'markets',
     side: borrowerSide('Markets'),
-    main: `${heading('Markets', '<span data-sym>USDC</span> against shielded ZEC. Borrow from one desk or several, or post your own order.', [
-      ['Available', 'm-available'],
-      ['Desks', 'm-desks'],
-      ['ZEC price', 'price'],
-    ])}
+    main: `<header class="heading heading-mk">
+    <div class="mk-intro">
+      <h1 class="h1">Markets</h1>
+      <p class="heading-sub">Borrow <span data-sym>USDC</span> against ZEC that stays shielded. One desk or several, in one borrow.</p>
+      <div class="mk-stats">
+        <span><em>On offer</em><b data-app="m-available">—</b></span>
+        <span><em>Desks</em><b data-app="m-desks">—</b></span>
+        <span><em>Guardians online</em><b data-app="m-guards">—</b></span>
+        <span><em>ZEC price</em><b data-app="price">—</b></span>
+      </div>
+    </div>
+    <div class="bez quote4"><div class="bez-in">
+      <span class="label-caps">What your ZEC can borrow</span>
+      <label class="q4-in"><span>You lock</span><div class="amount"><input data-input="mk-zec" type="number" min="0" step="0.1" value="1" inputmode="decimal" aria-label="ZEC to lock"/><b>ZEC</b></div></label>
+      <div class="q4-out"><span>You can borrow up to</span><b data-app="q4-max">—</b><em data-app="q4-how">Loading the order book…</em></div>
+      <button class="btn btn-primary btn-wide" type="button" data-open="borrow" data-app="q4-go" disabled><span>Borrow</span></button>
+    </div></div>
+  </header>
   ${markets()}
   ${borrowDialog()}
   ${lendDialog()}`,

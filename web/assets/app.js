@@ -576,11 +576,28 @@
   })
 
   /* A desk's mark: its initials on a tint of its own, picked from its address. */
+  /* A desk's seal: a small vault door drawn from its wallet address, so every desk has its
+     own mark and the same desk always looks the same. The hue, the number of rings and the
+     corner its key sits in all come from the address. */
   function avatar(d) {
-    const initials = d.name.split(/\s+/).map((w) => w[0]).join('').slice(0, 2).toUpperCase()
-    const hue = parseInt(d.owner.slice(2, 8), 16) % 360
-    return `<span class="avatar" style="--h:${hue}">${esc(initials)}</span>`
+    const x = d.owner.toLowerCase()
+    const hue = parseInt(x.slice(2, 8), 16) % 360
+    const rings = 2 + (parseInt(x.slice(8, 10), 16) % 3)
+    const corner = parseInt(x.slice(10, 12), 16) % 4
+    const ring = (i) => {
+      const o = 7 + i * 4.2
+      return `<rect class="seal-ring" x="${o}" y="${o}" width="${40 - 2 * o}" height="${40 - 2 * o}" rx="${Math.max(3, 9 - i * 2)}" style="opacity:${1 - i * 0.22}"/>`
+    }
+    const [cx, cy] = [[9, 9], [31, 9], [31, 31], [9, 31]][corner]
+    return `<span class="avatar seal" style="--h:${hue}" title="${esc(d.name)}"><svg viewBox="0 0 40 40" aria-hidden="true"><rect class="seal-tile" width="40" height="40" rx="11"/>${Array.from({ length: rings }, (_, i) => ring(i)).join('')}<circle class="seal-key" cx="20" cy="18.6" r="2.6"/><path class="seal-key" d="M18.9 20.2h2.2l.9 4.6h-4Z"/><circle class="seal-dot" cx="${cx}" cy="${cy}" r="2.4"/></svg></span>`
   }
+  /* How much of a desk's order is lent: a thin bar. */
+  const useBar = (d) => {
+    const max = Number(d.maxUsdc || 0)
+    const lent = max ? Math.min(100, Math.round((100 * (max - Number(d.availableUsdc || 0))) / max)) : 0
+    return `<span class="ubar" title="${lent}% of the order is lent"><i style="width:${lent}%"></i></span>`
+  }
+  const BOLT = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M9 1.5 3.5 9H8l-1 5.5L12.5 7H8l1-5.5Z" fill="currentColor"/></svg>'
   const SORTS = {
     rate: (d) => d.aprBps,
     term: (d) => d.termSeconds,
@@ -615,15 +632,15 @@
               const record = r.repaid || r.liquidated ? `${r.repaid} repaid · ${r.liquidated} liquidated` : 'no loans closed yet'
               const ga = guardianOf(s, d.guardianA)
               const gb = guardianOf(s, d.guardianB)
-              const guards = `<span class="guards">${dot(ga)}${esc(gName(s, d.guardianA))} · ${dot(gb)}${esc(gName(s, d.guardianB))}</span>`
+              const guards = `<span class="guards"><span class="gchip">${dot(ga)}${esc(gName(s, d.guardianA))}</span><span class="gchip">${dot(gb)}${esc(gName(s, d.guardianB))}</span></span>`
               const isBest = !own && !empty && d.aprBps === best && open.length > 1
               return `<div class="tr${isBest ? ' tr-best' : ''}" role="row">
-                <span class="td-desk" role="cell">${avatar(d)}<span><b>${esc(d.name)}${d.instant ? ' <i class="pill pill-good pill-sm">Instant</i>' : ''}${own ? ' <i class="pill pill-sm">Yours</i>' : ''}</b><em>${record}</em>${guards}</span></span>
-                <span role="cell" data-label="Rate"><b class="num-accent">${pct(d.aprBps)}</b>${isBest ? '<em class="best">Best rate</em>' : ''}</span>
+                <span class="td-desk" role="cell">${avatar(d)}<span><b>${esc(d.name)}${d.instant ? ` <i class="pill pill-instant pill-sm">${BOLT}Instant</i>` : ''}${own ? ' <i class="pill pill-sm">Yours</i>' : ''}</b><em>${record}</em>${guards}</span></span>
+                <span role="cell" data-label="Rate"><b class="num-accent rate4">${pct(d.aprBps)}</b>${isBest ? '<em class="best4">Best rate</em>' : '<em>APR</em>'}</span>
                 <span role="cell" data-label="Term"><b>${term(d.termSeconds)}</b></span>
                 <span role="cell" data-label="LTV start / liq."><b>${pct(d.startLtvBps)} / ${pct(d.liquidationLtvBps)}</b></span>
                 <span role="cell" data-label="Lent now"><b>${usdc(d.lentUsdc ?? 0)}</b><em>${r.open} open loan${r.open === 1 ? '' : 's'}</em></span>
-                <span role="cell" data-label="Available"><b>${usdc(d.availableUsdc)}</b><em>of ${usdc(d.maxUsdc)}</em></span>
+                <span role="cell" data-label="Available"><b>${usdc(d.availableUsdc)}</b>${useBar(d)}<em>of ${usdc(d.maxUsdc)}</em></span>
                 <span class="td-act td-pair" role="cell">
                   <button class="btn btn-primary" type="button" data-open="borrow" data-desk="${esc(d.owner)}"${own || empty ? ' disabled' : ''}><span>Borrow</span></button>
                   <button class="btn btn-ghost" type="button" data-open="lend" data-desk="${esc(d.owner)}"><span>${own ? 'Edit' : 'Lend'}</span></button>
@@ -636,14 +653,47 @@
           : `<div class="table-empty table-empty-act"><span>No desk has an order up yet.</span><button class="btn btn-primary" type="button" data-open="lend"><span>Post the first order</span></button></div>`
     }
 
+    // The quote card: what this much ZEC borrows at the best open order, at its start LTV
+    // and the guardians' price, capped by what that desk has left.
+    set('m-guards', `${(s.guardians || []).filter((g) => g.online).length} of ${(s.guardians || []).length}`)
+    {
+      const zecIn = Number($('[data-input="mk-zec"]')?.value || 0)
+      const bestDesk = [...open].sort((a, b) => a.aprBps - b.aprBps)[0]
+      const price = s.sizingPriceUsd
+      const go = $('[data-app="q4-go"]')
+      if (!bestDesk) {
+        set('q4-max', DASH)
+        set('q4-how', 'No desk has money to lend right now.')
+        if (go) go.disabled = true
+      } else if (!price) {
+        set('q4-max', DASH)
+        set('q4-how', 'Waiting for the guardians\u2019 price (3 exchanges).')
+        if (go) go.disabled = true
+      } else {
+        const raw = BigInt(Math.floor(zecIn * price * (bestDesk.startLtvBps / 10_000) * 1e6))
+        const cap = BigInt(bestDesk.availableUsdc)
+        const max = raw < cap ? raw : cap
+        set('q4-max', zecIn > 0 ? usdc(max) : DASH)
+        set('q4-how', zecIn > 0 ? `${pct(bestDesk.aprBps)} APR from ${bestDesk.name}, ${term(bestDesk.termSeconds)}, at ${pct(bestDesk.startLtvBps)} of $${price.toFixed(2)} per ZEC${raw > cap ? '. Capped by what the desk has left.' : '.'}` : 'Type how much ZEC you would lock.')
+        if (go) {
+          go.disabled = !(zecIn > 0 && max > 0n) || same(bestDesk.owner, me())
+          go.dataset.desk = bestDesk.owner
+          go.dataset.amount = trim((Number(max) / 1e6).toFixed(2))
+          const label = $('span', go)
+          if (label) label.textContent = zecIn > 0 && max > 0n ? `Borrow ${usdc(max)}` : 'Borrow'
+        }
+      }
+    }
+
     // The featured cards: the three best rates with money left to lend.
     const feat = $('[data-app="featured"]')
     if (feat) {
       const top3 = open.sort((a, b) => a.aprBps - b.aprBps).slice(0, 3)
-      feat.hidden = !top3.length
+      // One card alone repeats the quote card and the table; the strip shows from two desks.
+      feat.hidden = top3.length < 2
       feat.markup = top3
         .map((d) => `<button class="feat" type="button" data-open="borrow" data-desk="${esc(d.owner)}">
-          ${avatar(d)}<span class="feat-main"><b>${esc(d.name)}</b><em>${term(d.termSeconds)} · ${usdc(d.availableUsdc)} available${d.instant ? ' · instant' : ''}</em></span>
+          ${avatar(d)}<span class="feat-main"><b>${esc(d.name)}${d.instant ? `<i class="feat-bolt" title="Answers at once">${BOLT}</i>` : ''}</b><em>${term(d.termSeconds)} · ${usdc(d.availableUsdc)} to lend</em>${useBar(d)}</span>
           <span class="feat-rate"><b>${pct(d.aprBps)}</b><sup>APR</sup></span><span class="feat-go">${'→'}</span>
         </button>`)
         .join('')
@@ -692,7 +742,7 @@
     if (last) paintMarkets(last)
   })
   document.addEventListener('input', (e) => {
-    if (e.target.matches('[data-input="amount"]') && last) paintMarkets(last)
+    if (e.target.matches('[data-input="amount"], [data-input="mk-zec"]') && last) paintMarkets(last)
   })
 
   /* Dialogs close from their X, from a click on the dimmed backdrop, and from the browser's
@@ -733,6 +783,7 @@
       const going = myBasket(last)
       if (going && basketStep(last, going) !== 'closed') return void go('loan.html')
       chosen = open.dataset.desk
+      if (open.dataset.amount) { const a = $('[data-input="amount"]'); if (a) a.value = open.dataset.amount }
       unticked.clear()
       refreshBalances(true)
       paintMarkets(last)

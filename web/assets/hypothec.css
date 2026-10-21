@@ -5617,3 +5617,298 @@ body::after {
     padding: 0 10px;
   }
 }
+
+/* ----------------------------------------------------------- Markets v5 --
+   The heading carries the market in one line of figures and a quote card: what your ZEC
+   borrows at the best open order. Desks wear seals (a vault door drawn from the wallet
+   address), rows show how much of each order is lent, guardians are chips. */
+
+.heading-mk {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 400px);
+  align-items: end;
+  gap: 32px;
+  padding: 40px 0 32px;
+}
+
+.mk-intro .heading-sub {
+  max-width: 46ch;
+  margin-top: 10px;
+  font-size: 16px;
+}
+
+.mk-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+  margin-top: 28px;
+  border: 1px solid var(--hair);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  box-shadow: var(--lift);
+  overflow: hidden;
+}
+
+.mk-stats > span {
+  display: grid;
+  gap: 4px;
+  flex: 1 1 140px;
+  padding: 14px 18px;
+}
+
+.mk-stats > span + span {
+  border-left: 1px solid var(--hair);
+}
+
+.mk-stats em {
+  font-style: normal;
+  font-size: 12px;
+  color: var(--ink-3);
+}
+
+.mk-stats b {
+  font-family: var(--display-face);
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+.quote4 .bez-in {
+  gap: 14px;
+  padding: 20px;
+}
+
+.q4-in {
+  display: grid;
+  gap: 6px;
+}
+
+.q4-in > span,
+.q4-out > span {
+  font-size: 12.5px;
+  color: var(--ink-3);
+}
+
+.q4-in .amount input {
+  font-family: var(--display-face);
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.q4-out {
+  display: grid;
+  gap: 4px;
+  padding: 14px 16px;
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--hair));
+}
+
+.q4-out b {
+  font-family: var(--display-face);
+  font-size: 30px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.q4-out em {
+  font-style: normal;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--ink-3);
+}
+
+/* Seals. */
+.avatar.seal {
+  display: inline-grid;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border-radius: 12px;
+  background: none;
+  box-shadow: 0 1px 2px rgba(35, 31, 32, 0.08);
+}
+
+.seal svg {
+  width: 100%;
+  height: 100%;
+}
+
+.seal-tile {
+  fill: hsl(var(--h) 40% 93%);
+}
+
+.seal-ring {
+  fill: none;
+  stroke: hsl(var(--h) 45% 42%);
+  stroke-width: 1.3;
+}
+
+.seal-key {
+  fill: #231f20;
+}
+
+.seal-dot {
+  fill: var(--accent);
+}
+
+[data-theme='dark'] .seal-tile {
+  fill: hsl(var(--h) 22% 17%);
+}
+
+[data-theme='dark'] .seal-ring {
+  stroke: hsl(var(--h) 55% 68%);
+}
+
+[data-theme='dark'] .seal-key {
+  fill: #f1eee8;
+}
+
+.feat .avatar.seal {
+  width: 40px;
+  height: 40px;
+}
+
+/* Rows. */
+.table-book .td-desk {
+  gap: 14px;
+}
+
+.gchip {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 8px;
+  border: 1px solid var(--hair);
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  font-size: 11.5px;
+  color: var(--ink-2);
+}
+
+.guards {
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.guards .dot {
+  width: 6px;
+  height: 6px;
+  margin-right: 5px;
+}
+
+.pill-instant {
+  gap: 4px;
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  color: color-mix(in srgb, var(--accent-2) 60%, var(--ink));
+}
+
+.pill-instant svg,
+.feat-bolt svg {
+  width: 11px;
+  height: 11px;
+}
+
+[data-theme='dark'] .pill-instant {
+  color: var(--accent);
+}
+
+.rate4 {
+  font-family: var(--display-face);
+  font-size: 22px !important;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.best4 {
+  display: inline-flex;
+  align-items: center;
+  width: max-content;
+  height: 20px;
+  margin-top: 4px;
+  padding: 0 8px;
+  border-radius: var(--r-pill);
+  background: var(--accent);
+  color: var(--accent-ink) !important;
+  font-style: normal;
+  font-size: 11px !important;
+  font-weight: 600;
+}
+
+.ubar {
+  display: block;
+  width: min(120px, 100%);
+  height: 4px;
+  margin: 6px 0 4px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: color-mix(in srgb, var(--ink) 8%, transparent);
+}
+
+.ubar i {
+  display: block;
+  height: 100%;
+  border-radius: 99px;
+  background: var(--accent);
+}
+
+.feat-main .ubar {
+  width: 100%;
+  margin: 6px 0 0;
+}
+
+.feat-bolt {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  margin-left: 6px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
+  color: var(--accent-2);
+  vertical-align: 1px;
+}
+
+@media (max-width: 960px) {
+  .heading-mk {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .mk-stats > span + span {
+    border-left: 0;
+  }
+}
+
+.heading-mk {
+  align-items: stretch;
+}
+
+.mk-intro {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.mk-intro .mk-stats {
+  margin-top: 0;
+}
+
+.pill-instant::before {
+  content: none !important;
+  display: none !important;
+}
+
+.mk-intro {
+  justify-content: flex-start;
+}
+
+.mk-intro .mk-stats {
+  margin-top: auto;
+}
+
+.q4-in .amount input {
+  width: 100%;
+  min-width: 0;
+}

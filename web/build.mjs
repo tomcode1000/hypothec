@@ -1,4 +1,4 @@
-import { mkdir, writeFile, copyFile } from 'node:fs/promises'
+import { mkdir, writeFile, copyFile, readdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import { build } from 'esbuild'
 import { FAVICON, OUT } from './chrome.mjs'
@@ -11,7 +11,10 @@ import { pages } from './pages.mjs'
 */
 
 await mkdir(join(OUT, 'assets'), { recursive: true })
-for (const f of ['hypothec.css', 'app.js', 'og.png']) await copyFile(join(import.meta.dirname, 'assets', f), join(OUT, 'assets', f))
+for (const f of ['hypothec.css', 'app.js', 'og.png', 'icon-512.png', 'apple-touch-180.png']) await copyFile(join(import.meta.dirname, 'assets', f), join(OUT, 'assets', f))
+// The hero and footer videos (no sound) and their still frames.
+await mkdir(join(OUT, 'assets', 'media'), { recursive: true })
+for (const f of await readdir(join(import.meta.dirname, 'assets', 'media'))) await copyFile(join(import.meta.dirname, 'assets', 'media', f), join(OUT, 'assets', 'media', f))
 await writeFile(join(OUT, 'assets', 'favicon.svg'), FAVICON)
 await build({
   entryPoints: [join(import.meta.dirname, 'wallet', 'wallet.mjs')],

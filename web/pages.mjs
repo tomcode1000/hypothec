@@ -1,4 +1,3 @@
-import { vaultLines } from './art.mjs'
 import { MARK, appPage, page } from './chrome.mjs'
 import { borrowDialog, borrowerSide, btn, card, cardHead, deskSide, guardian, heading, health, info, lendDialog, line, loanPick, making, markets, pill, portfolioTabs, quest, stage, vaultArt } from './shell.mjs'
 
@@ -119,10 +118,10 @@ const index = () =>
     body: `${header}
 <main class="land">
   <section class="shell hero4">
-    <div class="hero-panel">${vaultLines({ cls: 'hero-art' })}
+    <div class="hero-panel"><div class="hero-media" aria-hidden="true"><video class="hero-vid vault-vid vault-vid-light" src="assets/media/vault-light.mp4" poster="assets/media/vault-light.jpg" muted loop playsinline autoplay preload="auto"></video><video class="hero-vid vault-vid vault-vid-dark" src="assets/media/vault-dark.mp4" poster="assets/media/vault-dark.jpg" muted loop playsinline autoplay preload="auto"></video></div>
       <div class="hero-copy4">
         <a class="hero-tag" href="log.html"><span class="dot dot-on"></span>Guardians online <b data-live="guardians">—</b><span aria-hidden="true">→</span></a>
-        <h1 class="h-hero">Borrow dollars against ZEC that never leaves the shielded pool</h1>
+        <h1 class="h-hero">Borrow dollars against <em>ZEC</em> that never leaves the shielded pool</h1>
         <p class="lede">Your ZEC stays in Zcash’s shielded pool, in a vault made for one loan, and no single party can move it: not the lender, not Hypothec, not one guardian.</p>
         <div class="hero-cta">${btn('Open the app', { href: 'markets.html' })}<a class="btn-link" href="docs.html">Read the docs <span aria-hidden="true">→</span></a></div>
       </div>
@@ -189,7 +188,7 @@ const index = () =>
     <div class="trust-cols">${TRUST.map(([t, b]) => `<div><h3>${t}</h3><p>${b}</p></div>`).join('')}</div>
   </section>
 </main>
-<footer class="foot4"><div class="shell">
+<footer class="foot4"><div class="foot4-media" aria-hidden="true"><video class="pool-vid" data-src="assets/media/pool.mp4" poster="assets/media/pool.jpg" muted loop playsinline preload="none"></video></div><div class="shell">
   <div class="foot4-top">
     <div class="foot4-brand"><a class="brand" href="index.html"><span class="mark">${MARK}</span><span>Hypothec</span></a><p>Private dollar loans against shielded ZEC.</p></div>
     <nav aria-label="Product"><b>Product</b><a href="markets.html">Markets</a><a href="loan.html">Portfolio</a><a href="log.html">Guardians</a></nav>
@@ -224,6 +223,64 @@ const step = (name, body) => `<div class="step" data-step="${name}"${name === 'n
 
 const pieceTable = (key, cols) => `<div class="mini" role="table"><div class="mini-row mini-head" role="row">${cols.map((c) => `<span>${c}</span>`).join('')}</div><div data-app="${key}"></div></div>`
 
+/* ------------------------------------------------------------ lock (F4) --
+   The moment the borrower pays ZEC into the vault, after the Figma frames F4: a state badge
+   and title, the payment (QR, amount, address, each copyable) with its confirmations, why it
+   is safe and what happens next, and the vault itself. app.js fills every data-app key and
+   picks the state: waiting, seen and confirming, confirmed, or several vaults at once. */
+const LOCK_ICONS = {
+  shield: '<path d="M9 1.8 3 4.2v4.3c0 3.6 2.6 6.6 6 7.7 3.4-1.1 6-4.1 6-7.7V4.2L9 1.8Z"/>',
+  key: '<circle cx="6" cy="12" r="3.2"/><path d="m8.3 9.7 6.5-6.5M12.5 5.5l2 2M10.8 7.2l1.6 1.6"/>',
+  clock: '<circle cx="9" cy="9" r="7"/><path d="M9 5v4l2.6 1.6"/>',
+  bolt: '<path d="M10 1.5 3.5 10H9l-1 6.5L14.5 8H9l1-6.5Z"/>',
+}
+const lockIcon = (k) => `<span class="li-ic"><svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${LOCK_ICONS[k]}</svg></span>`
+const copyIcon = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><rect x="5" y="5" width="8.5" height="8.5" rx="2"/><path d="M10.5 2.5H4A1.5 1.5 0 0 0 2.5 4v6.5"/></svg>'
+const zecCoin = '<span class="zec-coin" aria-hidden="true">ⓩ</span>'
+
+const lockScreen = () => `<div class="lock4" data-app="lock4">
+  <div class="lock4-head">
+    <span class="badge4" data-app="lock-badge-wrap"><i></i><b data-app="lock-badge">Waiting for ZEC</b></span>
+    <h2 class="lock4-title" data-app="lock-title">Send ZEC to the vault</h2>
+    <p class="lock4-sub" data-app="lock-sub">Scan the QR code with your Zcash wallet, or copy the details below. The guardians see it arrive through the vault’s view-only key.</p>
+  </div>
+  <div class="lock4-grid">
+    <div class="lock4-pay">
+      <div class="lock4-main">
+        <div class="lock4-qr"><div class="qr" data-app="lock-qr" aria-label="QR code of the payment request"></div><span>Scan with any Zcash wallet</span></div>
+        <div class="lock4-fields">
+          <span class="lab4" data-app="lock-amt-label">Amount to send</span>
+          <div class="lock4-amt">${zecCoin}<b data-app="b-lock-total">—</b></div>
+          <button class="copy4" type="button" data-copy="amount">${copyIcon}<span>Copy amount</span></button>
+          <div class="lock4-single" data-app="lock-single">
+            <span class="lab4">Vault address</span>
+            <div class="addr4"><code data-app="lock-addr">—</code><button class="copy4-ic" type="button" data-copy="addr" aria-label="Copy the vault address">${copyIcon}</button></div>
+            <button class="copy4" type="button" data-copy="addr">${copyIcon}<span>Copy address</span></button>
+          </div>
+          <div class="lock4-multi" data-app="lock-multi" hidden>
+            <span class="lab4">One payment to every vault</span>
+            <button class="copy4" type="button" data-copy="uri">${copyIcon}<span>Copy payment request</span></button>
+          </div>
+        </div>
+      </div>
+      <div class="lock4-vaults" data-app="lock-vaults" hidden></div>
+      <div class="lock4-conf" data-app="lock-conf">
+        <span class="ring4" data-app="lock-ring" style="--c: 0"><i></i></span>
+        <div class="conf4-text"><b data-app="lock-conf-n">0 of 10 confirmations</b><span class="dots4" data-app="lock-dots"></span></div>
+        <div class="conf4-side"><b data-app="lock-conf-state">Waiting for ZEC</b><span data-app="lock-conf-note">Nothing has arrived in the vault yet.</span></div>
+      </div>
+    </div>
+    <div class="lock4-info">
+      <div class="li4">${lockIcon('shield')}<div><b>Your ZEC stays in the shielded pool</b><p>The vault holds your ZEC in Zcash’s shielded pool. It never leaves, and is never given to anyone.</p></div></div>
+      <div class="li4">${lockIcon('key')}<div><b>Needs 3 of 4 keys</b><p>The vault’s key is split four ways (you, the lending desk, two guardians). Any three must sign to move it.</p></div></div>
+      <div class="li4">${lockIcon('clock')}<div><b data-app="lock-i3-t">Wait for 10 confirmations</b><p data-app="lock-i3-p">Once your payment is seen, the guardians wait for 10 confirmations on the Zcash network.</p></div></div>
+      <div class="li4">${lockIcon('bolt')}<div><b data-app="lock-i4-t">Then your dollars are paid</b><p data-app="lock-i4-p">Both guardians confirm the lock on <span data-net>Base</span>, and the loan contract pays the dollars to your wallet.</p></div></div>
+    </div>
+    <div class="lock4-art" aria-hidden="true"><video class="vault-vid vault-vid-light" src="assets/media/vault-light.mp4" poster="assets/media/vault-light.jpg" muted loop playsinline autoplay preload="metadata"></video><video class="vault-vid vault-vid-dark" src="assets/media/vault-dark.mp4" poster="assets/media/vault-dark.jpg" muted loop playsinline autoplay preload="metadata"></video></div>
+  </div>
+  <button class="btn btn-ghost lock4-demo" type="button" data-act="borrower/lock" data-app="lock-demo"><span>Demo: pay from the test wallet</span></button>
+</div>`
+
 const borrowerSteps = () => [
   step('none', `${cardHead('No loans yet')}
     <div class="pad"><p class="muted">Borrow from a desk on Markets; your loans show up here.</p>
@@ -247,18 +304,8 @@ const borrowerSteps = () => [
     <div class="pad"><p class="sub-h" data-app="keys-note">One vault per loan</p>${making()}</div>`),
   step('wait-fund', `${cardHead('The desks are funding')}
     <div class="pad">${pieceTable('piece-rows', ['Desk', 'Amount', 'Status'])}</div>`),
-  step('lock', `${cardHead('Lock your ZEC')}
-    <div class="pad">
-      <div class="sheet">${line('Send in all', 'b-lock-total')}</div>
-      ${pieceTable('lock-rows', ['Desk', 'Vault', 'Amount'])}
-      <div class="lockto">
-        <div class="qr" data-app="lock-qr" aria-label="QR code of the payment request"></div>
-        <label class="field"><span>Payment request (ZIP 321), one transaction to every vault</span><div class="copy mono" data-app="lock-uri">—</div></label>
-      </div>
-      ${btn('Send from the test wallet', { act: 'borrower/lock', tone: 'ghost', wide: true })}
-    </div>`),
-  step('confirming', `${cardHead('Guardians are checking the vaults')}
-    <div class="pad">${pieceTable('piece-rows', ['Desk', 'Amount', 'Status'])}</div>`),
+  step('lock', lockScreen()),
+  step('confirming', lockScreen()),
   step('active', `${cardHead('Your loans')}
     <div class="pad">
       ${pieceTable('loan-rows-b', ['Desk', 'Received', 'Left', 'Due', 'LTV', 'Status', ''])}

@@ -13,7 +13,7 @@
 // Needs e2e/stack.sh and serve.ts running.
 import { createServer, type IncomingMessage, type ServerResponse } from "http";
 import { existsSync, readFileSync, statSync } from "fs";
-import { extname, join, normalize } from "path";
+import { extname, join, normalize, sep } from "path";
 import { getAddress, isAddress, type Hex } from "viem";
 import { chainNow, getLoan, isOverdue, usdcBalance } from "./base";
 import { BASE_ADDRESS, baseAddress, EXPLORER, LOANS, TEST_ZEC_ADDRESS, USDC } from "./config";
@@ -111,6 +111,10 @@ async function recoverBaskets() {
 
 type Price = Awaited<ReturnType<typeof zecPrice>> | { error: string };
 
+/// The guardians accept a lock once it has this many confirmations (the wallet's spendable rule).
+const LOCK_CONFIRMATIONS = 10;
+const firstSeen = new Map<string, number>();
+
 async function loanView(doc: LoanDoc, desks: DeskTerms[], price: Price) {
   const onchain = await getLoan(doc.id);
   const overdue = onchain.statusName === "Active" ? await isOverdue(doc.id) : false;
@@ -119,6 +123,15 @@ async function loanView(doc: LoanDoc, desks: DeskTerms[], price: Price) {
   const events = await loanbook.events(doc.id);
   const checks = doc.vault ? await guardianChecks(doc, onchain, price, overdue).catch(() => null) : null;
   const vaultZat = balance ? BigInt(balance.total_zat) : 0n;
+  // Confirmations of the lock, for the lock screen: the chain height when the vault first
+  // showed a balance is (within a block, as this runs every few seconds) the height it was
+  // mined at. Full once the whole collateral is spendable (the guardians' 10).
+  const height = balance ? Number(balance.height) : 0;
+  if (vaultZat > 0n && height && !firstSeen.has(doc.id)) firstSeen.set(doc.id, height);
+  const required = BigInt(doc.offer.collateralZat);
+  const spendable = balance ? BigInt(balance.spendable_zat) : 0n;
+  const confirmations = spendable >= required ? LOCK_CONFIRMATIONS
+    : vaultZat > 0n && firstSeen.has(doc.id) ? Math.max(1, Math.min(LOCK_CONFIRMATIONS - 1, height - firstSeen.get(doc.id)! + 1)) : 0;
   const owed = BigInt(doc.offer.owedUsdc) - onchain.repaid;
   let risk = null;
   if ("microUsd" in price) {
@@ -152,6 +165,8 @@ async function loanView(doc: LoanDoc, desks: DeskTerms[], price: Price) {
     ended: ended(doc, onchain.statusName, vaultZat),
     vaultZat,
     spendableZat: balance?.spendable_zat ?? 0,
+    confirmations,
+    confirmationsNeeded: LOCK_CONFIRMATIONS,
     overdue,
     risk,
     checks,
@@ -623,6 +638,7 @@ if (AGENTS) {
 
 const TYPES: Record<string, string> = {
   ".html": "text/html; charset=utf-8", ".css": "text/css", ".js": "text/javascript", ".svg": "image/svg+xml", ".png": "image/png",
+  ".jpg": "image/jpeg", ".mp4": "video/mp4",
 };
 
 /// Link previews need absolute addresses: pages carry __SITE__ in their share tags, and it
@@ -634,7 +650,17 @@ function serveStatic(path: string, req: IncomingMessage, res: ServerResponse) {
     return;
   }
   const type = TYPES[extname(file)] ?? "application/octet-stream";
-  if (extname(file) !== ".html") return void res.writeHead(200, { "content-type": type }).end(readFileSync(file));
+  const cache = file.includes(`${sep}media${sep}`) ? { "cache-control": "public, max-age=86400" } : {};
+  if (extname(file) === ".mp4") {
+    // Video players ask for byte ranges (Safari will not play without them).
+    const data = readFileSync(file);
+    const m = /bytes=(\d*)-(\d*)/.exec(String(req.headers.range ?? ""));
+    if (!m) return void res.writeHead(200, { "content-type": type, "content-length": data.length, "accept-ranges": "bytes", ...cache }).end(data);
+    const start = m[1] ? Number(m[1]) : Math.max(0, data.length - Number(m[2]));
+    const end = m[1] && m[2] ? Math.min(Number(m[2]), data.length - 1) : data.length - 1;
+    return void res.writeHead(206, { "content-type": type, "content-length": end - start + 1, "content-range": `bytes ${start}-${end}/${data.length}`, "accept-ranges": "bytes", ...cache }).end(data.subarray(start, end + 1));
+  }
+  if (extname(file) !== ".html") return void res.writeHead(200, { "content-type": type, ...cache }).end(readFileSync(file));
   const proto = String(req.headers["x-forwarded-proto"] ?? "http").split(",")[0];
   const site = `${proto}://${req.headers["x-forwarded-host"] ?? req.headers.host ?? "127.0.0.1"}`;
   res.writeHead(200, { "content-type": type }).end(readFileSync(file, "utf8").replaceAll("__SITE__", site));

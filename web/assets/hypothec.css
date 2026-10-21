@@ -3194,7 +3194,9 @@ label.tr {
 
 /* A step panel fades in when the borrow moves to it. */
 .step:not([hidden]) {
-  animation: rise 0.25s ease both;
+  /* backwards, not both: a held animation would isolate the panel and stop the vault
+     video blending into the card. */
+  animation: rise 0.25s ease backwards;
 }
 
 /* Buttons: a press you can feel, a clear focus ring, a spinner while working. */
@@ -4245,7 +4247,7 @@ label.tr {
 }
 
 .land .h-hero {
-  max-width: 13ch;
+  max-width: 14ch;
   margin-top: 28px;
   font-size: clamp(44px, 5.8vw, 78px);
   line-height: 1.02;
@@ -4852,5 +4854,694 @@ label.tr {
     grid-template-columns: minmax(0, 1fr);
     gap: 6px;
     padding: 16px 18px;
+  }
+}
+
+/* ========================================================================== v5 --
+   The Figma frames (F1–F4), applied across the site: headings in Inter Tight, set firm and
+   tight; status as a pill with a gold dot; the progress strip as dots on one line; round
+   icon wells; and two hairline corner traces on the ground, top right and bottom left. */
+
+:root {
+  --display-face: "Inter Tight", "Inter", -apple-system, "Segoe UI", system-ui, sans-serif;
+}
+
+.heading .h1,
+.h-hero,
+.h-display,
+.lock4-title,
+.h2 {
+  font-family: var(--display-face);
+}
+
+.heading .h1 {
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+.land .h-hero {
+  font-weight: 560;
+  letter-spacing: -0.022em;
+}
+
+.h-display {
+  font-weight: 560;
+  letter-spacing: -0.02em !important;
+}
+
+.h2 {
+  font-weight: 650;
+  letter-spacing: -0.015em;
+}
+
+/* The ground's corner traces: thin rounded lines, as on every Figma frame. A fixed layer
+   behind the page, so no page background can tile or hide them. */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='420' height='220' fill='none'%3E%3Cpath d='M0 40h250a40 40 0 0 1 28 12l120 120a40 40 0 0 0 28 12' stroke='%23231f20' stroke-opacity='.10'/%3E%3Cpath d='M60 0h210a40 40 0 0 1 28 12l110 110' stroke='%23231f20' stroke-opacity='.07'/%3E%3C/svg%3E"),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='420' height='220' fill='none'%3E%3Cpath d='M420 180H170a40 40 0 0 1-28-12L22 48a40 40 0 0 0-28-12' stroke='%23231f20' stroke-opacity='.10'/%3E%3Cpath d='M360 220H150a40 40 0 0 1-28-12L12 98' stroke='%23231f20' stroke-opacity='.07'/%3E%3C/svg%3E");
+  background-position: right -40px top 60px, left -40px bottom 40px;
+  background-repeat: no-repeat;
+}
+
+[data-theme='dark'] body::after {
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='420' height='220' fill='none'%3E%3Cpath d='M0 40h250a40 40 0 0 1 28 12l120 120a40 40 0 0 0 28 12' stroke='%23f1eee8' stroke-opacity='.10'/%3E%3Cpath d='M60 0h210a40 40 0 0 1 28 12l110 110' stroke='%23f1eee8' stroke-opacity='.06'/%3E%3C/svg%3E"),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='420' height='220' fill='none'%3E%3Cpath d='M420 180H170a40 40 0 0 1-28-12L22 48a40 40 0 0 0-28-12' stroke='%23f1eee8' stroke-opacity='.10'/%3E%3Cpath d='M360 220H150a40 40 0 0 1-28-12L12 98' stroke='%23f1eee8' stroke-opacity='.06'/%3E%3C/svg%3E");
+}
+
+/* In dark the mark's tile keeps its ink and gains a hairline, as in the dark frames. */
+[data-theme='dark'] .mark-tile {
+  stroke: rgba(241, 238, 232, 0.55);
+  stroke-width: 1;
+}
+
+.mark svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* Status: a pill with a gold dot. */
+.badge4 {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 14px 0 12px;
+  border: 1px solid var(--hair);
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  box-shadow: var(--lift);
+  font-size: 13.5px;
+  color: var(--ink);
+}
+
+.badge4 i {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+.badge4 b {
+  font-weight: 500;
+}
+
+/* The progress strip: dots on one line, gold up to where the borrow is. */
+.quest-wrap {
+  padding: 22px 28px 18px;
+}
+
+.quest-track {
+  top: 29px !important;
+  height: 1.5px !important;
+  background: var(--hair) !important;
+}
+
+.quest-fill {
+  background: var(--accent) !important;
+}
+
+.quest .quest-node {
+  width: 16px !important;
+  height: 16px !important;
+  border: 1.5px solid var(--border-2) !important;
+  background: var(--surface) !important;
+  color: transparent !important;
+  font-size: 0 !important;
+  box-shadow: none !important;
+}
+
+.quest li.is-done .quest-node,
+.quest li.is-current .quest-node {
+  border-color: var(--accent) !important;
+  background: var(--accent) !important;
+}
+
+.quest li.is-current .quest-node {
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 24%, transparent) !important;
+}
+
+.quest .quest-label {
+  margin-top: 10px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink-3);
+  text-transform: none;
+}
+
+.quest li.is-current .quest-label {
+  color: var(--ink);
+  font-weight: 650;
+}
+
+.quest .quest-tag {
+  display: none !important;
+}
+
+/* The lock screen (F4). */
+.scene:has(.step:not([hidden]) > .lock4) {
+  grid-template-columns: minmax(0, 1fr) !important;
+}
+
+.scene:has(.step:not([hidden]) > .lock4) .scene-vault {
+  display: none !important;
+}
+
+.lock4 {
+  display: grid;
+  gap: 24px;
+  padding: 28px;
+}
+
+.lock4-head {
+  display: grid;
+  justify-items: start;
+  gap: 14px;
+}
+
+.lock4-title {
+  margin: 0;
+  font-size: clamp(30px, 3.2vw, 44px);
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+
+.lock4-sub {
+  max-width: 62ch;
+  margin: 0;
+  font-size: 15.5px;
+  line-height: 1.6;
+  color: var(--ink-3);
+}
+
+.lock4-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr) minmax(0, 0.9fr);
+  align-items: start;
+  gap: 20px;
+}
+
+.lock4-pay,
+.lock4-info {
+  border: 1px solid var(--hair);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  box-shadow: var(--lift);
+}
+
+.lock4-pay {
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+}
+
+.lock4-main {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 22px;
+}
+
+.lock4-qr {
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid var(--hair);
+  border-radius: var(--r-md);
+  background: #fff;
+  font-size: 12px;
+  color: #64605a;
+}
+
+.lock4-qr .qr {
+  width: 168px;
+  height: 168px;
+}
+
+.lock4-qr .qr svg {
+  width: 100%;
+  height: 100%;
+}
+
+.lock4-fields {
+  display: grid;
+  align-content: start;
+  justify-items: start;
+  gap: 10px;
+  min-width: 0;
+}
+
+.lab4 {
+  font-size: 13px;
+  color: var(--ink-3);
+}
+
+.lock4-amt {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.lock4-amt b {
+  font-family: var(--display-face);
+  font-size: clamp(20px, 1.7vw, 25px);
+  white-space: nowrap;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.zec-coin {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.copy4 {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 32px;
+  padding: 0 14px;
+  border: 1px solid var(--hair);
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  font: 500 13px var(--sans);
+  color: var(--ink);
+  cursor: pointer;
+  transition: border-color 0.15s, background-color 0.15s;
+}
+
+.copy4:hover {
+  border-color: var(--border-2);
+  background: var(--well);
+}
+
+.copy4 svg,
+.copy4-ic svg {
+  width: 14px;
+  height: 14px;
+}
+
+.lock4-single,
+.lock4-multi {
+  display: grid;
+  justify-items: start;
+  gap: 10px;
+  width: 100%;
+  margin-top: 6px;
+  padding-top: 16px;
+  border-top: 1px solid var(--hair);
+}
+
+.lock4-single[hidden],
+.lock4-multi[hidden] {
+  display: none;
+}
+
+.addr4 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 42px;
+  padding: 0 8px 0 14px;
+  border-radius: var(--r-md);
+  background: var(--well);
+}
+
+.addr4 code {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font: 500 13px var(--mono);
+  color: var(--ink-2);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.copy4-ic {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink-3);
+  cursor: pointer;
+}
+
+.copy4-ic:hover {
+  background: var(--surface);
+  color: var(--ink);
+}
+
+/* Several vaults, one payment. */
+.lock4-vaults {
+  display: grid;
+  gap: 8px;
+}
+
+.lock4-vaults[hidden] {
+  display: none;
+}
+
+.lv4-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 14.5px;
+}
+
+.lv4 {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--hair);
+  border-radius: var(--r-md);
+  background: var(--surface);
+}
+
+.lv4-ic {
+  width: 38px;
+  height: 38px;
+  padding: 3px;
+  border: 1px solid color-mix(in srgb, var(--accent) 55%, var(--hair));
+  border-radius: 50%;
+}
+
+.lv4-ic svg {
+  width: 100%;
+  height: 100%;
+}
+
+.lv4 > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.lv4 b {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.lv4 span {
+  font-size: 13px;
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.lv4 code {
+  overflow: hidden;
+  font: 500 12px var(--mono);
+  color: var(--ink-3);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Confirmations: a ring, ten dots, and the state. */
+.lock4-conf {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border: 1px solid var(--hair);
+  border-radius: var(--r-md);
+  background: var(--well);
+}
+
+.ring4 {
+  --c: 0;
+  position: relative;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: conic-gradient(var(--accent) calc(var(--c) * 360deg), color-mix(in srgb, var(--ink) 10%, transparent) 0);
+}
+
+.ring4 i {
+  position: absolute;
+  inset: 5px;
+  border-radius: 50%;
+  background: var(--well);
+}
+
+.lock4[data-state='confirmed'] .ring4 i {
+  background: var(--accent) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4.5 8.2l2.3 2.3 4.7-4.9' fill='none' stroke='%23231f20' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 16px no-repeat;
+}
+
+.conf4-text,
+.conf4-side {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.conf4-text b,
+.conf4-side b {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.conf4-side {
+  padding-left: 16px;
+  border-left: 1px solid var(--hair);
+}
+
+.conf4-side span {
+  font-size: 12.5px;
+  color: var(--ink-3);
+}
+
+.dots4 {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.dots4 i {
+  width: 9px;
+  height: 9px;
+  border: 1.3px solid var(--border-2);
+  border-radius: 50%;
+}
+
+.dots4 i.on {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+/* Why it is safe, and what happens next. */
+.lock4-info {
+  display: grid;
+}
+
+.li4 {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 14px;
+  padding: 16px 18px;
+}
+
+.li4 + .li4 {
+  border-top: 1px solid var(--hair);
+}
+
+.li-ic {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--hair);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.li-ic svg {
+  width: 17px;
+  height: 17px;
+}
+
+.li4 b {
+  font-size: 14.5px;
+  font-weight: 600;
+}
+
+.li4 p {
+  margin: 4px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink-3);
+}
+
+/* The vault, as on the hero: the video, blended into the page. */
+.lock4-art {
+  align-self: center;
+}
+
+.vault-vid {
+  display: block;
+  width: 100%;
+  height: auto;
+  mix-blend-mode: multiply;
+  -webkit-mask-image: radial-gradient(closest-side, #000 82%, transparent);
+  mask-image: radial-gradient(closest-side, #000 82%, transparent);
+  aspect-ratio: 1;
+  object-fit: cover;
+}
+
+.vault-vid-dark {
+  display: none;
+  mix-blend-mode: screen;
+}
+
+[data-theme='dark'] .vault-vid-light {
+  display: none;
+}
+
+[data-theme='dark'] .vault-vid-dark {
+  display: block;
+}
+
+.lock4-demo {
+  justify-self: start;
+  min-height: 36px;
+  font-size: 13px;
+}
+
+.lock4-demo[hidden] {
+  display: none;
+}
+
+@media (max-width: 1180px) {
+  .lock4-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .lock4-art {
+    display: none;
+  }
+}
+
+@media (max-width: 760px) {
+  .lock4 {
+    padding: 18px;
+  }
+  .lock4-grid,
+  .lock4-main,
+  .lock4-conf {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .lock4-qr {
+    justify-self: center;
+  }
+  .conf4-side {
+    padding: 10px 0 0;
+    border-top: 1px solid var(--hair);
+    border-left: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vault-vid,
+  .hero-vid,
+  .pool-vid {
+    display: none !important;
+  }
+}
+
+/* The hero's vault (video, F2 animated) at the right of the panel, blended into it: the
+   light version multiplies its white away, the dark one screens its black away. */
+.hero-media {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 3%;
+  display: flex;
+  align-items: center;
+  width: min(50%, 640px);
+  pointer-events: none;
+}
+
+.hero-media .vault-vid {
+  -webkit-mask-image: radial-gradient(closest-side, #000 86%, transparent);
+  mask-image: radial-gradient(closest-side, #000 86%, transparent);
+}
+
+.land .h-hero em {
+  font-style: normal;
+  color: var(--accent-2);
+}
+
+[data-theme='dark'] .land .h-hero em {
+  color: var(--accent);
+}
+
+/* The footer stands on the shielded pool: the water video, darkened and melted into the
+   page at its top edge so the links stay readable. */
+.foot4 {
+  position: relative;
+  overflow: hidden;
+  padding-top: 120px;
+}
+
+.foot4-media {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
+.pool-vid {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 65%;
+  opacity: 0.85;
+}
+
+.foot4-media::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, var(--ground) 0%, rgba(27, 25, 24, 0.86) 22%, rgba(27, 25, 24, 0.55) 60%, rgba(27, 25, 24, 0.72) 100%);
+}
+
+.foot4 > .shell {
+  position: relative;
+  z-index: 1;
+}
+
+@media (max-width: 960px) {
+  .hero-media {
+    top: 8px;
+    bottom: auto;
+    right: 0;
+    left: 0;
+    width: min(78%, 360px);
+    margin: 0 auto;
   }
 }

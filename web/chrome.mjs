@@ -64,30 +64,15 @@ const ic = (name) =>
 /* ------------------------------------------------------------------- mark -- */
 
 /*
-  The Hypothec mark, built the way Quorum's is: one rounded square cut by a mask.
-  It keeps Quorum's two cuts, the clipped top-left corner and the diagonal slot
-  that frees the bottom-right block, so the two marks read as one maker's. Where
-  Quorum's square is a hollow ring, this one is a solid vault door with a keyhole
-  through it; the freed corner block is the fourth key.
+  The Hypothec mark (F3, from the Figma file): an ink tile with a gold keyhole, the same in
+  every theme and at every size. The keyhole is a round head over a tapering slot, drawn
+  wide enough to survive 16 pixels.
 */
-const MARK_SHAPES = (id) => `<defs><mask id="${id}" maskUnits="userSpaceOnUse" x="0" y="0" width="40" height="40"><rect width="40" height="40" fill="#fff"/><polygon points="-2,-2 15.4,-2 -2,15.4" fill="#000"/><line x1="25" y1="41" x2="41" y2="25" stroke="#000" stroke-width="4.4" stroke-linecap="round"/><circle cx="19.2" cy="16.6" r="4.6" fill="#000"/><path d="M17 19.4h4.4l1.5 8.4h-7.4Z" fill="#000"/></mask></defs>`
-const MARK_BODY = `<rect x="2" y="2" width="36" height="36" rx="11"/>`
+const KEYHOLE = `<circle cx="20" cy="16.4" r="5.4" fill="#F4B728"/><path d="M17.6 19.6h4.8l1.9 10.6h-8.6Z" fill="#F4B728"/>`
+const MARK = `<svg viewBox="0 0 40 40" aria-hidden="true"><rect class="mark-tile" x="0.5" y="0.5" width="39" height="39" rx="9.5" fill="#231F20"/>${KEYHOLE}</svg>`
 
-/*
-  Each mark carries its own mask id. A page can render two rails and hide one (the
-  log page does), and a mask defined inside a hidden element does not render, so a
-  shared id left the visible mark without its keyhole.
-*/
-let markN = 0
-const MARK = {
-  toString() {
-    const id = `hm${++markN}`
-    return `<svg viewBox="0 0 40 40" aria-hidden="true">${MARK_SHAPES(id)}<g mask="url(#${id})" fill="currentColor">${MARK_BODY}</g></svg>`
-  },
-}
-
-/* Favicon: the mark in Zcash yellow on Zcash black. */
-const FAVICON = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="40" height="40">${MARK_SHAPES('f')}<rect width="40" height="40" rx="9" fill="#231F20"/><g transform="translate(4 4) scale(.8)"><g mask="url(#f)" fill="#F4B728">${MARK_BODY}</g></g></svg>`
+/* Favicon: the same mark. */
+const FAVICON = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="40" height="40"><rect width="40" height="40" rx="9" fill="#231F20"/>${KEYHOLE}</svg>`
 
 const caret = `<svg class="caret" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`
 
@@ -118,10 +103,11 @@ const head = (title) => `<!doctype html>
 <meta name="twitter:description" content="${SHARE_TEXT}"/>
 <meta name="twitter:image" content="__SITE__/assets/og.png"/>
 <link rel="icon" type="image/svg+xml" href="assets/favicon.svg"/>
+<link rel="apple-touch-icon" href="assets/apple-touch-180.png"/>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <!-- Not render-blocking: the page shows at once in the fallback face and swaps in Inter. -->
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700;800&display=swap" media="print" onload="this.media='all'"/>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Inter+Tight:wght@500;600;700&family=JetBrains+Mono:wght@500;700;800&display=swap" media="print" onload="this.media='all'"/>
 <link rel="stylesheet" href="assets/hypothec.css"/>
 <script>
   /* The stored theme and rail width, applied before first paint (as on Quorum). */
@@ -160,4 +146,4 @@ ${main}
 </body>
 </html>`
 
-export { I, ic, MARK, FAVICON, caret, page, appPage, OUT }
+export { I, ic, MARK, FAVICON, KEYHOLE, caret, page, appPage, OUT }

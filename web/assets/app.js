@@ -86,6 +86,17 @@
     }
     landing()
     setInterval(landing, 20_000)
+    // The footer's water video loads only when the visitor nears the bottom.
+    const pool = $('.pool-vid')
+    if (pool && 'IntersectionObserver' in window && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      const io = new IntersectionObserver((entries) => {
+        if (!entries.some((x) => x.isIntersecting)) return
+        pool.src = pool.dataset.src
+        pool.play().catch(() => undefined)
+        io.disconnect()
+      }, { rootMargin: '400px' })
+      io.observe(pool)
+    }
     return
   }
 
@@ -763,6 +774,82 @@
     return `zcash:?${locks.map((l, i) => `${i ? `address.${i}` : 'address'}=${l.vault}&${i ? `amount.${i}` : 'amount'}=${amount(l.offer.collateralZat)}`).join('&')}`
   }
 
+  /* ------------------------------------------------------------ lock (F4) -- */
+
+  /* Waiting (nothing in the vaults), seen and confirming (in, counting confirmations),
+     confirmed (every vault full and spendable: the guardians confirm on the loan chain),
+     or several vaults paid by one request. Copy buttons read lockCopy. */
+  let lockCopy = { amount: '', addr: '', uri: '' }
+  function paintLock(s, loans) {
+    const vaults = loans.filter((l) => l.onchain.status === 'Funded' && l.vault)
+    if (!vaults.length) return
+    const need = (l) => BigInt(l.offer.collateralZat)
+    const toPay = vaults.filter((l) => BigInt(l.vaultZat) < need(l))
+    const total = sum(vaults.map((l) => l.offer.collateralZat))
+    const needed = vaults[0].confirmationsNeeded || 10
+    const confs = Math.min(...vaults.map((l) => l.confirmations || 0))
+    const seen = vaults.every((l) => BigInt(l.vaultZat) >= need(l))
+    const confirmed = vaults.every((l) => BigInt(l.spendableZat) >= need(l))
+    const state = confirmed ? 'confirmed' : seen ? 'seen' : 'waiting'
+    const several = vaults.length > 1
+    const testnet = s.chain?.zecPrefix === 'utest1'
+
+    const uri = zip321(toPay.length ? toPay : vaults)
+    lockCopy = { amount: trim((Number(total) / 1e8).toFixed(8)), addr: vaults[0].vault, uri }
+    $$('[data-app="lock4"]').forEach((el) => (el.dataset.state = state))
+    set('lock-badge', several && state === 'waiting' ? 'Several vaults, one payment' : { waiting: 'Waiting for ZEC', seen: 'Seen, confirming', confirmed: 'Confirmed' }[state])
+    set('lock-title', state === 'confirmed' ? 'Payment confirmed' : state === 'seen' ? 'Payment detected' : several ? 'One payment. Several vaults.' : 'Send ZEC to the vault')
+    set('lock-sub', state === 'confirmed'
+      ? `Your ZEC has ${needed} of ${needed} confirmations on the Zcash network. The guardians are confirming the lock on ${NETS}, and the contract pays your dollars next.`
+      : state === 'seen'
+        ? `Your ZEC is in the vault and is being confirmed on the Zcash network.${testnet ? ' On testnet this takes about 12 minutes.' : ''}`
+        : several
+          ? `Your borrow is split across ${vaults.length} vaults, one per lending desk. One payment from your Zcash wallet fills every vault in a single shielded transaction.`
+          : 'Scan the QR code with your Zcash wallet, or copy the details below. The guardians see it arrive through the vault’s view-only key.')
+    set('lock-amt-label', several ? 'Total to send' : 'Amount to send')
+    set('b-lock-total', zec(total))
+    set('lock-addr', vaults[0].vault)
+    $$('[data-app="lock-single"]').forEach((el) => (el.hidden = several))
+    $$('[data-app="lock-multi"]').forEach((el) => (el.hidden = !several))
+    $$('[data-app="lock-vaults"]').forEach((el) => (el.hidden = !several))
+    html('lock-vaults', several ? `<div class="lv4-head"><b>Your payment fills ${vaults.length} vaults</b><span class="pill">${vaults.length} vaults · 1 payment</span></div>` + vaults
+      .map((l, i) => `<div class="lv4"><span class="lv4-ic">${MARK_KEY}</span><div><b>Vault ${i + 1} · ${esc(l.deskName)}</b><span>${zec(l.offer.collateralZat)} · ${usdc(l.offer.principalUsdc)}</span><code>${esc(short(l.vault))}</code></div><button class="copy4" type="button" data-copy-text="${esc(l.vault)}"><span>Copy address</span></button></div>`)
+      .join('') : '')
+    $$('[data-app="lock-qr"]').forEach((el) => {
+      if (uri && el.dataset.for !== uri && W) {
+        el.markup = W.qr(uri)
+        el.dataset.for = uri
+      }
+    })
+
+    // Confirmations: a ring, a dot per confirmation, and the state beside them.
+    const n = state === 'confirmed' ? needed : confs
+    set('lock-conf-n', `${n} of ${needed} confirmations`)
+    $$('[data-app="lock-ring"]').forEach((el) => el.style.setProperty('--c', String(n / needed)))
+    html('lock-dots', Array.from({ length: needed }, (_, i) => `<i class="${i < n ? 'on' : ''}"></i>`).join(''))
+    set('lock-conf-state', { waiting: 'Waiting for ZEC', seen: `Waiting for ${needed} confirmations`, confirmed: 'Confirmed on the Zcash network' }[state])
+    const minutes = Math.max(1, Math.round(((needed - n) * 75) / 60))
+    set('lock-conf-note', state === 'waiting' ? 'Nothing has arrived in the vault yet.' : state === 'seen' ? (testnet ? `About ${minutes} minute${minutes === 1 ? '' : 's'} to go.` : 'Pending on the Zcash network.') : 'Shielded, and now spendable only by 3 of the 4 keys.')
+    set('lock-i3-t', state === 'confirmed' ? `${needed} confirmations completed` : `Wait for ${needed} confirmations`)
+    set('lock-i3-p', state === 'confirmed' ? 'Your payment is confirmed on the Zcash network. The vault is locked.' : `Once your payment is seen, the guardians wait for ${needed} confirmations on the Zcash network.`)
+    set('lock-i4-t', state === 'confirmed' ? 'Your dollars are paid next' : 'Then your dollars are paid')
+    $$('[data-app="lock-demo"]').forEach((el) => (el.hidden = state !== 'waiting' || busyLoan(s, vaults[0].id)))
+  }
+  const MARK_KEY = '<svg viewBox="0 0 40 40" aria-hidden="true"><rect x="0.5" y="0.5" width="39" height="39" rx="9.5" fill="#231F20"/><circle cx="20" cy="16.4" r="5.4" fill="#F4B728"/><path d="M17.6 19.6h4.8l1.9 10.6h-8.6Z" fill="#F4B728"/></svg>'
+
+  document.addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-copy], [data-copy-text]')
+    if (!b) return
+    const text = b.dataset.copyText || lockCopy[b.dataset.copy] || ''
+    if (!text) return
+    try {
+      await navigator.clipboard.writeText(text)
+      toast('Copied')
+    } catch (err) {
+      toast(text)
+    }
+  })
+
   function paintBorrower(s) {
     const b = myBasket(s)
     const loans = basketLoans(s, b)
@@ -811,18 +898,8 @@
     set('accept-note', unanswered ? `${unanswered} more desk${unanswered === 1 ? ' has' : 's have'} not answered yet; you can accept these now and the rest when they come.` : '')
     $$('[data-app="accept-label"] span').forEach((el) => (el.textContent = offered.length > 1 ? `Accept ${offered.length} offers and sign` : 'Accept and sign'))
 
-    // One lock for every vault waiting for its ZEC.
-    const locks = loans.filter((l) => l.onchain.status === 'Funded' && l.vault && BigInt(l.spendableZat) < BigInt(l.offer.collateralZat))
-    set('b-lock-total', locks.length ? zec(sum(locks.map((l) => l.offer.collateralZat))) : DASH)
-    html('lock-rows', locks.map((l) => `<div class="mini-row"><span><b>${esc(l.deskName)}</b></span><span class="mono">${esc(short(l.vault))}</span><span>${zec(l.offer.collateralZat)}</span></div>`).join(''))
-    const uri = locks.length ? zip321(locks) : ''
-    set('lock-uri', uri || DASH)
-    $$('[data-app="lock-qr"]').forEach((el) => {
-      if (uri && el.dataset.for !== uri && W) {
-        el.markup = W.qr(uri)
-        el.dataset.for = uri
-      }
-    })
+    // The lock screen (F4): every funded vault of this borrow, and the one payment for them.
+    paintLock(s, loans)
 
     // The running loans, one row each with what can be done to it now.
     html('loan-rows-b', loans

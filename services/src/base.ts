@@ -1,20 +1,18 @@
-// Base Sepolia: the HypothecLoans contract and USDC, as seen by one role.
+// The dollar side (Base Sepolia or Robinhood Chain testnet, chains.ts): the HypothecLoans
+// contract and its stablecoin, as seen by one role.
 import {
   createPublicClient, createWalletClient, fallback, http, erc20Abi,
   type Abi, type Address, type Hash, type Hex,
 } from "viem";
-import { baseSepolia } from "viem/chains";
 import { nonceManager, privateKeyToAccount } from "viem/accounts";
 import { baseKey, EXPLORER, LOANS, LOANS_ABI, USDC, type BaseWallet } from "./config";
+import { CHAIN } from "./chains";
 
 // The public RPC sometimes takes more than viem's default 10 s to answer; a resent signed
 // transaction has the same hash, so retrying a send cannot pay twice.
-// Two public RPC providers: when one stops answering, calls go to the other.
-const rpc = fallback([
-  http(process.env.BASE_SEPOLIA_RPC ?? "https://sepolia.base.org", { timeout: 30_000, retryCount: 3 }),
-  http("https://base-sepolia-rpc.publicnode.com", { timeout: 30_000, retryCount: 3 }),
-]);
-export const pub = createPublicClient({ chain: baseSepolia, transport: rpc });
+// Public RPC providers in turn: when one stops answering, calls go to the next.
+const rpc = fallback(CHAIN.rpcs.map((url) => http(url, { timeout: 30_000, retryCount: 3 })));
+export const pub = createPublicClient({ chain: CHAIN.chain, transport: rpc });
 
 export const STATUS = ["None", "Offered", "Accepted", "Funded", "Active", "Repaid", "Liquidated", "Cancelled"] as const;
 export type LoanStatus = (typeof STATUS)[number];
@@ -77,7 +75,7 @@ export async function usdcBalance(a: Address): Promise<bigint> {
 /// A role's write access: checks each call against the chain first, sends with a fixed gas
 /// limit, waits for success and returns the explorer link.
 export function baseAs(role: BaseWallet) {
-  const w = createWalletClient({ chain: baseSepolia, transport: rpc, account: privateKeyToAccount(baseKey(role), { nonceManager }) });
+  const w = createWalletClient({ chain: CHAIN.chain, transport: rpc, account: privateKeyToAccount(baseKey(role), { nonceManager }) });
   async function call(address: Address, abi: Abi, functionName: string, args: readonly unknown[]): Promise<string> {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { request } = await retry(() => pub.simulateContract({ address, abi, functionName, args, account: w.account } as any));

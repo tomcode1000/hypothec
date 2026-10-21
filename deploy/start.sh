@@ -4,7 +4,8 @@
 #   guardians -> test desks on first boot -> website with the desk agents (in front).
 # Everything keeps its state on /data, so a redeploy picks up where it left off.
 # Secrets come from the host's environment, never the image:
-#   TESTNET_WALLETS_JSON   the test wallets' Base Sepolia keys (testnet only)
+#   TESTNET_WALLETS_JSON   the test wallets' EVM keys (testnet only; the same keys on every chain)
+#   HYPOTHEC_CHAIN         base (default) or robinhood: where the loans and the stablecoin are
 #   HYPOTHEC_DEMO_TOKEN    unlocks the demo price controls (?demo=<token> on the Lending tab)
 set -euo pipefail
 mkdir -p /data/.hypothec /data/stack /data/testnet-wallet

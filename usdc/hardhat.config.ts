@@ -14,6 +14,11 @@ const config: HardhatUserConfig = {
       chainId: 84532,
       accounts: process.env.HYPOTHEC_DEPLOYER_KEY ? [process.env.HYPOTHEC_DEPLOYER_KEY] : [],
     },
+    robinhoodTestnet: {
+      url: process.env.ROBINHOOD_RPC ?? "https://rpc.testnet.chain.robinhood.com",
+      chainId: 46630,
+      accounts: process.env.HYPOTHEC_DEPLOYER_KEY ? [process.env.HYPOTHEC_DEPLOYER_KEY] : [],
+    },
   },
 };
 

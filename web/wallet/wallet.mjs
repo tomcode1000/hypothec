@@ -8,23 +8,17 @@
   Writes are simulated against the chain first (the public RPC can lag a block, so the
   simulation is retried), then sent, then awaited until mined.
 */
-import { createPublicClient, createWalletClient, custom, erc20Abi, fallback, getAddress, http, parseAbi } from 'viem'
-import { baseSepolia } from 'viem/chains'
+import { createPublicClient, createWalletClient, custom, defineChain, erc20Abi, fallback, getAddress, http, parseAbi } from 'viem'
 import qrcode from 'qrcode-generator'
 import artifact from '../../usdc/artifacts/contracts/HypothecLoans.sol/HypothecLoans.json'
 
 const LOANS_ABI = artifact.abi
-const BASE_SEPOLIA_HEX = '0x14a34' // 84532
-// Reads go to two public RPC providers in turn, so one slow provider does not stop a page.
-const pub = createPublicClient({
-  chain: baseSepolia,
-  transport: fallback([
-    http('https://sepolia.base.org', { timeout: 20_000, retryCount: 2 }),
-    http('https://base-sepolia-rpc.publicnode.com', { timeout: 20_000, retryCount: 2 }),
-  ]),
-})
-
-let cfg = null // { loans, usdc } from /api/state
+/* The dollar-side chain (Base Sepolia or Robinhood Chain testnet) comes from /api/state:
+   its id, name, RPCs, explorer, the stablecoin and its permit domain. Reads go to its public
+   RPC providers in turn, so one slow provider does not stop a page. */
+let cfg = null // /api/state .chain
+let chain = null
+let pub = null
 let wallet = null
 let account = null
 
@@ -34,26 +28,41 @@ const eth = () => {
 }
 
 export function configure(c) {
+  const same = cfg && cfg.id === c.id && cfg.loans === c.loans
   cfg = c
+  if (same && pub) return
+  chain = defineChain({
+    id: c.id,
+    name: c.label,
+    nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+    rpcUrls: { default: { http: c.rpcs } },
+    blockExplorers: { default: { name: 'Explorer', url: c.explorer } },
+    testnet: true,
+  })
+  pub = createPublicClient({ chain, transport: fallback(c.rpcs.map((url) => http(url, { timeout: 20_000, retryCount: 2 }))) })
+  if (account) bind(account)
 }
+
+const chainHex = () => `0x${cfg.id.toString(16)}`
 
 export const address = () => account
 
 async function ensureChain() {
+  if (!cfg) throw new Error('Still loading the network; try again in a moment.')
   const id = await eth().request({ method: 'eth_chainId' })
-  if (id === BASE_SEPOLIA_HEX) return
+  if (id?.toLowerCase() === chainHex()) return
   try {
-    await eth().request({ method: 'wallet_switchEthereumChain', params: [{ chainId: BASE_SEPOLIA_HEX }] })
+    await eth().request({ method: 'wallet_switchEthereumChain', params: [{ chainId: chainHex() }] })
   } catch (e) {
     if (e?.code !== 4902) throw e
     await eth().request({
       method: 'wallet_addEthereumChain',
       params: [{
-        chainId: BASE_SEPOLIA_HEX,
-        chainName: 'Base Sepolia',
-        nativeCurrency: { name: 'Sepolia Ether', symbol: 'ETH', decimals: 18 },
-        rpcUrls: ['https://sepolia.base.org'],
-        blockExplorerUrls: ['https://sepolia.basescan.org'],
+        chainId: chainHex(),
+        chainName: cfg.label,
+        nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+        rpcUrls: cfg.rpcs,
+        blockExplorerUrls: [cfg.explorer],
       }],
     })
   }
@@ -61,11 +70,11 @@ async function ensureChain() {
 
 function bind(a) {
   account = getAddress(a)
-  wallet = createWalletClient({ chain: baseSepolia, transport: custom(eth()), account })
+  wallet = createWalletClient({ chain: chain ?? undefined, transport: custom(eth()), account })
   return account
 }
 
-/** Asks the wallet for an account (a prompt the first time) and moves it to Base Sepolia. */
+/** Asks the wallet for an account (a prompt the first time) and moves it to the loan chain. */
 export async function connect() {
   const [a] = await eth().request({ method: 'eth_requestAccounts' })
   await ensureChain()
@@ -109,11 +118,11 @@ const loans = (fn, args) => call(cfg.loans, LOANS_ABI, fn, args)
 const approveUsdc = (amount) => call(cfg.usdc, erc20Abi, 'approve', [cfg.loans, amount])
 
 /**
- * What a wallet holds on Base Sepolia: ETH for fees and USDC, in base units. Read from the
+ * What a wallet holds on the loan chain: ETH for fees and the stablecoin, in base units. Read from the
  * public RPC, so the screens can warn before an action would fail. Null when not connected.
  */
 export async function balances(a = account) {
-  if (!a || !cfg) return null
+  if (!a || !cfg || !pub) return null
   const [eth, usdc] = await Promise.all([
     pub.getBalance({ address: a }),
     pub.readContract({ address: cfg.usdc, abi: erc20Abi, functionName: 'balanceOf', args: [a] }),
@@ -178,7 +187,7 @@ export async function repayAll(ids, total) {
   const deadline = BigInt(Math.floor(Date.now() / 1000) + 1800)
   const sig = await wallet.signTypedData({
     account,
-    domain: { name: 'USDC', version: '2', chainId: 84532, verifyingContract: getAddress(cfg.usdc) },
+    domain: { name: cfg.permitName, version: cfg.permitVersion, chainId: cfg.id, verifyingContract: getAddress(cfg.usdc) },
     types: { Permit: [
       { name: 'owner', type: 'address' }, { name: 'spender', type: 'address' }, { name: 'value', type: 'uint256' },
       { name: 'nonce', type: 'uint256' }, { name: 'deadline', type: 'uint256' },

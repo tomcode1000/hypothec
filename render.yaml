@@ -19,3 +19,7 @@ services:
         sync: false
       - key: HYPOTHEC_DEMO_TOKEN
         generateValue: true
+      # The dollar side: base (Base Sepolia, USDC) or robinhood (Robinhood Chain testnet,
+      # USDG). The loan contract must be deployed there (usdc/scripts/deploy.ts).
+      - key: HYPOTHEC_CHAIN
+        value: base

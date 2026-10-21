@@ -29,7 +29,7 @@ const header = `<header class="site-head"><div class="shell site-head-in">
    publishes its own levels and rate, and the app shows them live. */
 const STRUCTURE = [
   ['Collateral', 'ZEC, held in a shielded Zcash vault'],
-  ['Loan', 'USDC on Base, paid out by the loan contract'],
+  ['Loan', '<span data-sym>USDC</span> on <span data-net>Base</span>, paid out by the loan contract'],
   ['Custody', 'One threshold key per loan; any 3 of its 4 holders can sign'],
   ['Key holders', 'Borrower, lending desk, two independent guardians'],
   ['Liquidation', "Only past the desk's published LTV; any surplus returns in the same transaction"],
@@ -37,7 +37,7 @@ const STRUCTURE = [
 
 /* The landing page's three lines: what a borrower, a lender and a guardian each do. */
 const TRIO = [
-  ['01', 'Borrow', 'Pick a desk\u2019s order, or several. Your ZEC goes into a shielded vault per loan, and the USDC is paid on Base.'],
+  ['01', 'Borrow', 'Pick a desk\u2019s order, or several. Your ZEC goes into a shielded vault per loan, and the <span data-sym>USDC</span> is paid on <span data-net>Base</span>.'],
   ['02', 'Lend', 'Post an order with your rate, term and LTV levels. Your desk holds one key of each loan\u2019s vault.'],
   ['03', 'Guardians', 'Two independent operators sign only what the published rules allow, and log every decision.'],
 ]
@@ -45,7 +45,7 @@ const TRIO = [
 const STEPS = [
   ['Request', 'The borrower picks an amount from the desks’ orders. One borrow can be filled from several desks; each piece is its own loan.'],
   ['Vault', 'Borrower, desk and both guardians make one shielded vault per loan. Each holds a share; the whole key never exists.'],
-  ['Lock', 'The borrower pays every vault in one shielded transaction. When both guardians see it confirmed, the contract pays the USDC.'],
+  ['Lock', 'The borrower pays every vault in one shielded transaction. When both guardians see it confirmed, the contract pays the <span data-sym>USDC</span>.'],
   ['Repay', 'The borrower repays through the contract, at any time before the due date.'],
   ['Release', 'The contract records repayment and both guardians sign the ZEC back to the borrower.'],
 ]
@@ -59,14 +59,14 @@ const CONTROLS = [
 
 const SEES = [
   ['Borrower', 'Everything about its own loans', '—'],
-  ['Lending desk', 'The collateral in its own loan’s vault, through the viewing key; where the USDC is paid; the ZEC address the vault returns to', 'The borrower’s Zcash wallet, its balance or history, or the borrower’s loans with other desks'],
+  ['Lending desk', 'The collateral in its own loan’s vault, through the viewing key; where the <span data-sym>USDC</span> is paid; the ZEC address the vault returns to', 'The borrower’s Zcash wallet, its balance or history, or the borrower’s loans with other desks'],
   ['Guardians', 'What the desk sees, and the signed terms they enforce', 'The borrower’s Zcash wallet'],
   ['Zcash, publicly', 'Shielded transactions', 'Owner, amount, or that a loan exists'],
-  ['Base, publicly', 'Each loan contract: USDC amount, payout address, status', 'Any Zcash detail; the contract stores none'],
+  ['<span data-net>Base</span>, publicly', 'Each loan contract: <span data-sym>USDC</span> amount, payout address, status', 'Any Zcash detail; the contract stores none'],
 ]
 
 const DISCLOSURES = [
-  ['Test build', 'Runs on Zcash testnet (or a local test chain) and Base Sepolia, with test coins only. The testnet build uses pre-release Zcash libraries for NU7.'],
+  ['Test build', 'Runs on Zcash testnet (or a local test chain) and <span data-net-full>Base Sepolia</span>, with test coins only. The testnet build uses pre-release Zcash libraries for NU7.'],
   ['Guardians', 'Both guardians in this build are run by the Hypothec team. In production they are independent operators from a published list, approved by each borrower.'],
   ['Audit', 'Not audited. The threshold-signing library underneath is pre-release software.'],
   ['Availability', 'Release and liquidation need both guardians online. If one is unavailable, the borrower, the desk and the other guardian can close the loan together.'],
@@ -99,7 +99,7 @@ const index = () =>
 <footer class="site-foot"><div class="shell site-foot-in">
   <a class="brand" href="index.html"><span class="mark">${MARK}</span><span>Hypothec</span></a>
   <nav class="site-foot-links" aria-label="Footer"><a href="markets.html">Markets</a><a href="docs.html">Docs</a><a href="log.html">Guardians</a></nav>
-  <p>Test build for the ZECATHON. Zcash testnet and Base Sepolia; nothing here holds real money.</p>
+  <p>Test build for the ZECATHON. Zcash testnet and <span data-net-full>Base Sepolia</span>; nothing here holds real money.</p>
 </div></footer>`,
   })
 
@@ -110,7 +110,7 @@ const marketsPage = () =>
     title: 'Markets',
     view: 'markets',
     side: borrowerSide('Markets'),
-    main: `${heading('Markets', 'USDC against shielded ZEC. Borrow from one desk or several, or post your own order.', [
+    main: `${heading('Markets', '<span data-sym>USDC</span> against shielded ZEC. Borrow from one desk or several, or post your own order.', [
       ['Available', 'm-available'],
       ['Desks', 'm-desks'],
       ['ZEC price', 'price'],
@@ -269,7 +269,7 @@ const operator = (letter) => `<div class="operator card">
     <div><h3>Guardian ${letter}</h3><p>Demo operator · run by the Hypothec team</p></div>
     ${pill('On the list', 'good')}
   </div>
-  <div class="sheet">${line('Base address', `op-${letter}-addr`)}${line('Signed entries', `op-${letter}-count`)}${line('Seat', `op-${letter}-seat`)}</div>
+  <div class="sheet">${line('<span data-net>Base</span> address', `op-${letter}-addr`)}${line('Signed entries', `op-${letter}-count`)}${line('Seat', `op-${letter}-seat`)}</div>
 </div>`
 
 const log = () =>
@@ -300,21 +300,21 @@ const logWithRails = () =>
 
 const OPERATOR_NEEDS = [
   ['A server', 'Any small Linux machine that stays on: a VPS or a cloud instance. 2 GB of memory is enough.'],
-  ['A Base key', 'One wallet key, with a little ETH for the confirmations it sends. Its fees arrive at this address.'],
+  ['A <span data-net>Base</span> key', 'One wallet key, with a little ETH for the confirmations it sends. Its fees arrive at this address.'],
   ['Zcash access', 'A public lightwalletd such as testnet.zec.rocks. No Zcash node of your own.'],
   ['Two addresses', 'The Hypothec loanbook (orders, signed entries, the operator list) and the relay (carries encrypted messages between a vault’s four key holders).'],
   ['The code', 'Rust, Node.js 22 and Python 3.10, or the Docker image from the repository.'],
 ]
 const OPERATOR_STEPS = [
   ['Build', 'Clone the repository and build the key-share service and the rules engine.'],
-  ['Add your key', 'Put the guardian’s Base key in ~/.hypothec/testnet-wallets.json, under refereeA or refereeB. It never leaves the server.'],
+  ['Add your key', 'Put the guardian’s <span data-net>Base</span> key in ~/.hypothec/testnet-wallets.json, under refereeA or refereeB. It never leaves the server.'],
   ['Start both parts', 'The key-share service first, then the guardian, pointed at the loanbook and the relay.'],
   ['It registers', 'The guardian signs its name, operator and a fingerprint of the rules code into the operator list, then heartbeats every 30 seconds.'],
   ['Desks choose it', 'It shows Online on the Guardians page. Every loan from a desk that names it is guarded from then on.'],
 ]
 
 const DOCS = [
-  ['overview', 'Overview', `<p>Hypothec lends USDC on Base against ZEC that stays shielded on Zcash. Each loan's collateral sits in its own vault: one threshold key with four holders (the borrower, the lending desk and two guardians), any three of whom can sign. No single party, and no two of them, can move it alone.</p>
+  ['overview', 'Overview', `<p>Hypothec lends <span data-sym>USDC</span> on <span data-net>Base</span> against ZEC that stays shielded on Zcash. Each loan's collateral sits in its own vault: one threshold key with four holders (the borrower, the lending desk and two guardians), any three of whom can sign. No single party, and no two of them, can move it alone.</p>
     <dl class="facts">${STRUCTURE.map(([k, d]) => `<div><dt>${k}</dt><dd>${d}</dd></div>`).join('')}</dl>`],
   ['how', 'How a loan runs', `<ol class="steps">${STEPS.map(([t, b], i) => `<li><span class="steps-n">${String(i + 1).padStart(2, '0')}</span><h3>${t}</h3><p>${b}</p></li>`).join('')}</ol>`],
   ['orders', 'Orders and split borrows', `<p>Any wallet can open a desk and post an order: its rate, term, loan-to-value levels and how much it lends in all. Markets lists every order.</p>
@@ -326,7 +326,7 @@ const DOCS = [
     </table></div>`],
   ['guardians', 'Guardians', `<p>A guardian is an operator from the Hypothec list running the published rules engine. It confirms a lock only when it sees the full amount in the vault; it releases only after the contract says repaid (or cancelled, when a lock never completed), and only to the borrower's signed address; it liquidates only past the published line, or after the due date, with the surplus to the borrower in the same transaction. It signs every decision, and the reason, into the log.</p>`],
   ['operators', 'Run a guardian', `<p>A guardian is a program, not a person. An operator runs it on their own server; from then on it watches every loan that names it and signs or refuses by the published rules, with nobody approving anything by hand. Two operators can guard every loan on Hypothec.</p>
-    <p>The operator sets up one Base key, once: it is the guardian's identity on the operator list and the address its fees are paid to. Each loan's vault needs a fresh key share, and the guardian's key-share service makes it automatically when the loan starts and keeps it on the operator's server; it never leaves.</p>
+    <p>The operator sets up one <span data-net>Base</span> key, once: it is the guardian's identity on the operator list and the address its fees are paid to. Each loan's vault needs a fresh key share, and the guardian's key-share service makes it automatically when the loan starts and keeps it on the operator's server; it never leaves.</p>
     <h3 class="sub-h">What you need</h3>
     <dl class="facts">${OPERATOR_NEEDS.map(([k, d]) => `<div><dt>${k}</dt><dd>${d}</dd></div>`).join('')}</dl>
     <h3 class="sub-h">Start it</h3>
@@ -344,7 +344,7 @@ cd services
 HYPOTHEC_LOANBOOK=&lt;loanbook URL&gt; HYPOTHEC_OPERATOR="Your company" \\
   ZAFE_NETWORK=test npx ts-node src/serve.ts refereeA</code></pre>
     <h3 class="sub-h">Pay and uptime</h3>
-    <p>Each guardian earns 0.10% of every loan's principal it guards, paid by the loan contract on Base when it confirms the lock, from the desk's funding. The fee is the same whether the loan is repaid or liquidated, so a guardian never gains by liquidating.</p>
+    <p>Each guardian earns 0.10% of every loan's principal it guards, paid by the loan contract on <span data-net>Base</span> when it confirms the lock, from the desk's funding. The fee is the same whether the loan is repaid or liquidated, so a guardian never gains by liquidating.</p>
     <p>The guardian sends a signed heartbeat every 30 seconds. While they arrive it shows Online on the <a href="log.html">Guardians</a> page and desks can choose it; if they stop for 90 seconds it shows Offline and new desks cannot pick it. Loans it already guards still close without it: the borrower, the desk and the other guardian are three of four keys.</p>
     <p>The full checks it runs, and why it refuses, are in the repository: <a href="https://github.com/tomcode1000/hypothec/blob/main/docs/GUARDIANS.txt">GUARDIANS.txt</a>, <a href="https://github.com/tomcode1000/hypothec/blob/main/docs/DESIGN.md">DESIGN.md</a>.</p>
     <p class="note">In this demo both guardians are run by the Hypothec team, on the same server as the website, and its loanbook and relay are not open to outside operators yet. In production each guardian is an independent company, and Hypothec runs at most one.</p>`],

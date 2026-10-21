@@ -17,6 +17,7 @@ import { extname, join, normalize } from "path";
 import { getAddress, isAddress, type Hex } from "viem";
 import { chainNow, getLoan, isOverdue, usdcBalance } from "./base";
 import { BASE_ADDRESS, baseAddress, EXPLORER, LOANS, TEST_ZEC_ADDRESS, USDC } from "./config";
+import { CHAIN } from "./chains";
 import {
   borrowerRelease, buildOffer, keySetup, lenderCancel, lenderFund, lenderLiquidate, lenderOffer, loanbook,
   lockManyFromTestWallet, setPriceOverride, testLenderOf, topUpFromTestWallet,
@@ -215,7 +216,12 @@ async function state() {
     sizingPriceUsd: sizing,
     price,
     explorer: EXPLORER,
-    chain: { id: 84532, loans: LOANS, usdc: USDC, zecPrefix: ZEC_PREFIX },
+    // The dollar side's chain: the browser wallet builds its client from this.
+    chain: {
+      id: CHAIN.chain.id, key: CHAIN.key, label: CHAIN.label, short: CHAIN.short, rpcs: CHAIN.rpcs, explorer: CHAIN.explorer,
+      symbol: CHAIN.stable.symbol, permitName: CHAIN.stable.permitName, permitVersion: CHAIN.stable.permitVersion, faucets: CHAIN.faucets,
+      loans: LOANS, usdc: USDC, zecPrefix: ZEC_PREFIX,
+    },
     addresses: BASE_ADDRESS,
     // On this test chain the parties may not have Zcash wallets that reach it; these are
     // the test wallets' addresses, offered on screen and labelled as such.

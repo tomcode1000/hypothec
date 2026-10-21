@@ -72,7 +72,7 @@ const QUEST = [
   ['guard', 'Accept', 'accept'],
   ['key', 'Keys', 'keys'],
   ['lock', 'Lock ZEC', 'lock'],
-  ['coin', 'Get USDC', 'receive'],
+  ['coin', 'Get <span data-sym>USDC</span>', 'receive'],
   ['receipt', 'Repay', 'repay'],
   ['vault', 'ZEC back', 'release'],
 ]
@@ -162,7 +162,7 @@ const themeToggle = `<button class="theme" type="button" data-theme-toggle>${ic(
 
 /*
   The wallet button. It connects the browser wallet the person already uses; the label
-  turns into their short address once connected. Each Base action is signed there.
+  turns into their short address once connected. Each <span data-net>Base</span> action is signed there.
 */
 const walletBtn = (label) =>
   `<button class="wallet-btn" type="button" data-app="wallet"><span class="wallet-dot"></span><span data-app="wallet-label">${label}</span></button>`
@@ -242,10 +242,10 @@ const dialogHead = (id, title) => `<div class="card-head"><h2 class="h2" id="${i
 const borrowDialog = () => `<dialog class="dialog dialog-wide" data-app="borrow-dialog" aria-labelledby="borrow-title">
   ${dialogHead('borrow-title', 'Borrow from <span data-app="desk-name">a desk</span>')}
   <div class="pad">
-    <label class="field"><span>Amount</span><div class="amount"><input data-input="amount" type="number" min="0.1" step="0.1" value="5" inputmode="decimal"/><b>USDC</b></div></label>
+    <label class="field"><span>Amount</span><div class="amount"><input data-input="amount" type="number" min="0.1" step="0.1" value="5" inputmode="decimal"/><b data-sym>USDC</b></div></label>
     <div class="dest">
       <p class="dest-to">Paid to <b data-app="dest-wallet">your connected wallet</b>. <button class="linkish" type="button" data-toggle="dest">Change</button></p>
-      <label class="field" data-app="dest-field" hidden><span>Send the USDC to</span><input data-input="usdc-address" type="text" spellcheck="false" placeholder="0x… any Base address"/></label>
+      <label class="field" data-app="dest-field" hidden><span>Send the <span data-sym>USDC</span> to</span><input data-input="usdc-address" type="text" spellcheck="false" placeholder="0x… any address on this chain"/></label>
     </div>
     <div class="mini" role="table"><div class="mini-row mini-head" role="row"><span></span><span>Desk</span><span>Rate</span><span>Available</span><span>You take</span></div><div data-app="fill-rows"></div></div>
     <p class="fine" data-app="fill-note"></p>
@@ -265,7 +265,7 @@ const lendDialog = () => `<dialog class="dialog dialog-wide" data-app="lend-dial
   <div class="pad">
     <div class="desk-form">
       <label class="field"><span>Desk name</span><input data-desk="name" type="text" maxlength="32" placeholder="shown to borrowers"/></label>
-      <label class="field"><span>Lend up to</span><div class="amount"><input data-desk="max" type="number" min="0.1" step="0.1"/><b>USDC</b></div></label>
+      <label class="field"><span>Lend up to</span><div class="amount"><input data-desk="max" type="number" min="0.1" step="0.1"/><b data-sym>USDC</b></div></label>
       <label class="field"><span>Rate</span><div class="amount"><input data-desk="apr" type="number" min="0" max="100" step="0.1"/><b>% APR</b></div></label>
       <label class="field"><span>Term</span><div class="amount"><input data-desk="term" type="number" min="1" step="1"/><select data-desk="term-unit"><option value="86400">days</option><option value="60">minutes</option></select></div></label>
       <label class="field"><span>Start LTV</span><div class="amount"><input data-desk="start" type="number" min="10" max="90" step="1"/><b>%</b></div></label>

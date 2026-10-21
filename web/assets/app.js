@@ -65,7 +65,13 @@
 
   const DASH = '—'
   const trim = (s) => s.replace(/\.?0+$/, '')
-  const usdc = (base) => (base == null ? DASH : `${trim((Number(base) / 1e6).toFixed(6))} USDC`)
+  /* The dollar side's chain and stablecoin, from /api/state (Base Sepolia and USDC, or
+     Robinhood Chain testnet and USDG). */
+  let SYM = 'USDC'
+  let NET = 'Base Sepolia'
+  let NETS = 'Base'
+  let FAUCET = { gas: 'https://www.alchemy.com/faucets/base-sepolia', stable: 'https://faucet.circle.com/' }
+  const usdc = (base) => (base == null ? DASH : `${trim((Number(base) / 1e6).toFixed(6))} ${SYM}`)
   const zec = (zat) => (zat == null ? DASH : `${trim((Number(zat) / 1e8).toFixed(8))} ZEC`)
   const usd = (n) => (n == null || !isFinite(n) ? DASH : `$${Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`)
   const pct = (bps) => (bps == null ? DASH : `${trim((Number(bps) / 100).toFixed(2))}%`)
@@ -223,7 +229,7 @@
     const role = `referee${letter}`
     const mine = loan.events.filter((e) => e.actor === role)
     const lastEv = mine[mine.length - 1]
-    if (lastEv?.kind === 'liquidation-recorded') return ['Recorded on Base', 'good']
+    if (lastEv?.kind === 'liquidation-recorded') return [`Recorded on ${NETS}`, 'good']
     if (lastEv?.kind?.startsWith('approve-')) return ['Signed', 'good']
     if (lastEv?.kind === 'refuse') return ['Refused', 'bad']
     if (loan.onchain[`lock${letter}`]) return ['Lock confirmed', 'good']
@@ -276,15 +282,15 @@
       case 'offer': return 'Posted the terms and both guardians, signed'
       case 'accept': return 'Accepted the terms and both guardians, and signed a fresh ZEC payout address'
       case 'vault': return `Vault made by all four: ${esc(short(d.address))}`
-      case 'funded': return 'Put the USDC into the loan contract'
-      case 'cancelled': return `Not locked by the deadline: cancelled and refunded on Base${link(d.tx, 'tx')}`
+      case 'funded': return `Put the ${SYM} into the loan contract`
+      case 'cancelled': return `Not locked by the deadline: cancelled and refunded on ${NETS}${link(d.tx, 'tx')}`
       case 'waiting': return `Waiting: ${esc(d.reason)}`
-      case 'lock-confirmed': return `Saw ${esc(zec(d.vaultZat))} locked and confirmed it on Base${link(d.tx, 'tx')}`
-      case 'lent': return 'USDC received from the contract'
+      case 'lock-confirmed': return `Saw ${esc(zec(d.vaultZat))} locked and confirmed it on ${NETS}${link(d.tx, 'tx')}`
+      case 'lent': return `${SYM} received from the contract`
       case 'approve-release': return `Signed the release · rule: ${esc(d.rule)}`
       case 'approve-liquidation': return `Signed the liquidation · ${esc(d.rule)} at ${esc(usd(d.priceUsd))} (${d.priceSource === 'override' ? 'demo override' : 'exchange average'})`
       case 'refuse': return `Refused · ${esc(d.reason)}`
-      case 'liquidation-recorded': return `Recorded the liquidation on Base${link(d.tx, 'tx')}`
+      case 'liquidation-recorded': return `Recorded the liquidation on ${NETS}${link(d.tx, 'tx')}`
       case 'released': return 'ZEC released to the borrower’s registered address'
       case 'vault-open': return 'Opened the loan’s vault: the four parties start making its keys'
       case 'vault-join': return 'Joined the vault'
@@ -326,7 +332,7 @@
     const waiting = key === 'lock' ? [...mine].reverse().find((e) => e.kind === 'waiting') : null
     const tag = `<span>${letter}</span><b>Guardian ${letter}</b>`
     if (signed) {
-      const what = signed.kind === 'lock-confirmed' ? 'Confirmed the lock' : signed.kind === 'liquidation-recorded' ? 'Signed, and recorded it on Base' : 'Signed'
+      const what = signed.kind === 'lock-confirmed' ? 'Confirmed the lock' : signed.kind === 'liquidation-recorded' ? `Signed, and recorded it on ${NETS}` : 'Signed'
       return `<div class="decision decision-signed">${tag}<span>${what} · ${time(signed.at)}${signed.data.tx ? ` · <a href="${signed.data.tx}" target="_blank" rel="noopener">tx</a>` : ''}</span></div>`
     }
     if (refused) return `<div class="decision decision-refused">${tag}<span>Refused · ${esc(refused.data.reason)}</span></div>`
@@ -395,20 +401,20 @@
     } catch (e) {}
   }
   const eth = (wei) => `${trim((Number(wei) / 1e18).toFixed(6))} ETH`
-  const FAUCETS = '<a href="https://faucet.circle.com/" target="_blank" rel="noopener">USDC faucet</a> · <a href="https://www.alchemy.com/faucets/base-sepolia" target="_blank" rel="noopener">ETH faucet</a>'
+  const faucets = () => `<a href="${FAUCET.stable}" target="_blank" rel="noopener">${SYM} faucet</a> · <a href="${FAUCET.gas}" target="_blank" rel="noopener">ETH faucet</a>`
 
   /* One check block: the wallet's figures, then what is short, if anything. */
   function preflight(key, needs) {
     const lines = []
     if (!me()) return html(key, '')
     if (!bal || balFor !== me()) return html(key, '<p class="pf-line"><span>Your wallet</span><b>checking…</b></p>')
-    lines.push(`<p class="pf-line"><span>Your wallet on Base Sepolia</span><b>${eth(bal.eth)} · ${usdc(bal.usdc)}</b></p>`)
+    lines.push(`<p class="pf-line"><span>Your wallet on ${NET}</span><b>${eth(bal.eth)} · ${usdc(bal.usdc)}</b></p>`)
     const short = []
-    if (needs.feeTxs && bal.eth < FEE_ETH) short.push(`a little Base Sepolia ETH for fees (${needs.feeTxs} confirmation${needs.feeTxs === 1 ? '' : 's'} in your wallet)`)
-    if (needs.usdc && bal.usdc < needs.usdc) short.push(`${usdc(needs.usdc - bal.usdc)} more USDC ${needs.usdcWhy || ''}`.trim())
+    if (needs.feeTxs && bal.eth < FEE_ETH) short.push(`a little ${NET} ETH for fees (${needs.feeTxs} confirmation${needs.feeTxs === 1 ? '' : 's'} in your wallet)`)
+    if (needs.usdc && bal.usdc < needs.usdc) short.push(`${usdc(needs.usdc - bal.usdc)} more ${SYM} ${needs.usdcWhy || ''}`.trim())
     lines.push(short.length
-      ? `<p class="pf-warn"><b>Before you go on</b> This wallet needs ${short.join(' and ')}. ${FAUCETS}</p>`
-      : `<p class="pf-ok">Enough for the fees${needs.usdc ? ' and the USDC' : ''}.</p>`)
+      ? `<p class="pf-warn"><b>Before you go on</b> This wallet needs ${short.join(' and ')}. ${faucets()}</p>`
+      : `<p class="pf-ok">Enough for the fees${needs.usdc ? ` and the ${SYM}` : ''}.</p>`)
     html(key, lines.join(''))
   }
 
@@ -682,7 +688,7 @@
       usual = 'about 30 s each'
     } else if (step === 'wait-fund') {
       title = 'The desks are funding their contracts'
-      detail = `${names(loans.filter((l) => l.onchain.status === 'Accepted'))} moving USDC into the loan contract`
+      detail = `${names(loans.filter((l) => l.onchain.status === 'Accepted'))} moving ${SYM} into the loan contract`
       usual = 'usually under 20 s'
     } else if (step === 'lock') {
       title = 'Your turn: lock your ZEC below'
@@ -742,7 +748,7 @@
 
     const live = loans.filter((l) => !ended(l))
     const names = [...new Set((b?.pieces ?? []).map((p) => p.deskName))]
-    set('basket-sub', b ? `${b.pieces.length > 1 ? `${b.pieces.length} loans · ` : ''}${names.join(', ')} · USDC on Base against shielded ZEC` : 'USDC on Base against shielded ZEC')
+    set('basket-sub', b ? `${b.pieces.length > 1 ? `${b.pieces.length} loans · ` : ''}${names.join(', ')} · ${SYM} on ${NETS} against shielded ZEC` : `${SYM} on ${NETS} against shielded ZEC`)
     set('b-principal', b ? usdc(sum(b.pieces.map((p) => p.principalUsdc))) : DASH)
     set('b-left', !loans.length ? DASH : !live.length ? 'Settled' : usdc(sum(live.map((l) => BigInt(l.offer.owedUsdc) - BigInt(l.onchain.repaid)))))
     set('vault-zec', loans.some((l) => l.vault) ? zec(sum(loans.map((l) => l.vaultZat))) : DASH)
@@ -964,11 +970,20 @@
     last = s
     document.body.classList.remove('is-loading')
     refreshBalances()
+    if (s.chain) {
+      SYM = s.chain.symbol || SYM
+      NET = s.chain.label || NET
+      NETS = s.chain.short || NETS
+      FAUCET = s.chain.faucets || FAUCET
+      $$('[data-sym]').forEach((el) => { if (el.textContent !== SYM) el.textContent = SYM })
+      $$('[data-net]').forEach((el) => { if (el.textContent !== NETS) el.textContent = NETS })
+      $$('[data-net-full]').forEach((el) => { if (el.textContent !== NET) el.textContent = NET })
+    }
     if (!configured && s.chain && W) {
-      W.configure({ loans: s.chain.loans, usdc: s.chain.usdc })
+      W.configure(s.chain)
       configured = true
     }
-    set('net-label', `Base Sepolia · ${s.chain.zecPrefix === 'utest1' ? 'Zcash testnet' : 'Zcash test chain'}`)
+    set('net-label', `${NET} · ${s.chain.zecPrefix === 'utest1' ? 'Zcash testnet' : 'Zcash test chain'}`)
     const focus = focusLoan(s)
     paintPicker(s, focus)
     paintHealth(s, focus)
@@ -1079,7 +1094,7 @@
   function paintWallet() {
     const a = me()
     $$('[data-app="wallet"]').forEach((b) => (a ? b.setAttribute('data-connected', '') : b.removeAttribute('data-connected')))
-    if (a) $$('[data-app="wallet-label"]').forEach((el) => (el.markup = `<b>${a.slice(0, 6)}…${a.slice(-4)}</b><em>Base Sepolia</em>`))
+    if (a) $$('[data-app="wallet-label"]').forEach((el) => (el.markup = `<b>${a.slice(0, 6)}…${a.slice(-4)}</b><em>${NET}</em>`))
     paintDest()
     if (last) paint(last)
   }
@@ -1088,7 +1103,7 @@
     try {
       await W.connect()
       paintWallet()
-      toast('Wallet connected on Base Sepolia')
+      toast(`Wallet connected on ${NET}`)
     } catch (err) {
       toast(plain(err), 'bad')
     }
@@ -1114,8 +1129,8 @@
   function plain(err) {
     const m = String(err?.shortMessage || err?.message || err)
     if (/user (rejected|denied)|rejected the request|denied transaction/i.test(m)) return 'You cancelled in your wallet.'
-    if (/insufficient funds|exceeds the balance of the account|gas required exceeds/i.test(m)) return 'Not enough Base Sepolia ETH in this wallet for the fee.'
-    if (/transfer amount exceeds balance|ERC20: transfer amount|exceeds balance/i.test(m)) return 'Not enough USDC in this wallet.'
+    if (/insufficient funds|exceeds the balance of the account|gas required exceeds/i.test(m)) return `Not enough ${NET} ETH in this wallet for the fee.`
+    if (/transfer amount exceeds balance|ERC20: transfer amount|exceeds balance/i.test(m)) return `Not enough ${SYM} in this wallet.`
     if (/took too long|timed out|timeout|fetch failed|Failed to fetch|network/i.test(m)) return 'The network is slow to answer. Try again in a moment.'
     if (/Missing or invalid parameters/i.test(m)) return 'The wallet could not send it; the network may be slow. Try again.'
     if (/No browser wallet/i.test(m)) return m
@@ -1129,10 +1144,10 @@
     if (!loans.length) throw new Error('Nothing to repay')
     needWallet(loans[0].offer.borrower, 'the borrower')
     await refreshBalances(true)
-    if (bal && bal.eth < FEE_ETH) throw new Error('This wallet has no Base Sepolia ETH for the fee. Add a little, then try again.')
+    if (bal && bal.eth < FEE_ETH) throw new Error(`This wallet has no ${NET} ETH for the fee. Add a little, then try again.`)
     const total = sum(loans.map((l) => BigInt(l.offer.owedUsdc) - BigInt(l.onchain.repaid)))
     if (bal && bal.usdc < total) throw new Error(`Repaying needs ${usdc(total)}; this wallet holds ${usdc(bal.usdc)}.`)
-    confirm(`Repay ${usdc(total)}: sign the USDC permit, then confirm one transaction`)
+    confirm(`Repay ${usdc(total)}: sign the ${SYM} permit, then confirm one transaction`)
     await W.repayAll(loans.map((l) => l.id), total)
     toast(`Repaid ${usdc(total)}. Your ZEC is on its way back…`)
     await post('borrower/release-all', { loans: loans.map((l) => l.id) }).catch((e) => toast(plain(e), 'bad'))
@@ -1161,11 +1176,11 @@
       if (!offered.length) throw new Error('No offer to accept yet')
       needWallet(b.borrower, 'the borrower')
       await refreshBalances(true)
-      if (bal && bal.eth < FEE_ETH) throw new Error('This wallet has no Base Sepolia ETH for the fee, so the wallet cannot send it. Add a little (see the box above), then try again.')
+      if (bal && bal.eth < FEE_ETH) throw new Error(`This wallet has no ${NET} ETH for the fee, so the wallet cannot send it. Add a little (see the box above), then try again.`)
       const borrowerZec = $('[data-input="zec-payout"]').value.trim()
       if (!new RegExp(`^${last.chain.zecPrefix}`).test(borrowerZec)) throw new Error(`Paste a shielded address from your Zcash wallet (${last.chain.zecPrefix}… on this chain)`)
       for (const l of offered) {
-        confirm(`Accept ${l.deskName}'s terms and the guardians on Base`)
+        confirm(`Accept ${l.deskName}'s terms and the guardians on ${NETS}`)
         await W.accept(l.id, b.usdcAddress)
         const accept = { offerDigest: l.offerDigest, borrowerZec }
         confirm(`Sign your ZEC payout address into ${l.deskName}'s loan`)
@@ -1211,7 +1226,7 @@
       if (!p) throw new Error('That request is gone')
       const lender = needWallet(p.desk, 'your desk')
       const { id, offer, terms } = await post('lender/prepare', { lender, basket: b.id, piece: p.index })
-      confirm('Post the terms on Base')
+      confirm(`Post the terms on ${NETS}`)
       await W.offer(id, terms)
       confirm('Sign the terms for the loanbook')
       const sig = await W.sign(W.message('offer', id, offer))
@@ -1221,18 +1236,18 @@
     'lender/fund': async (btn) => {
       const l = loanById(last, btn.dataset.loan)
       needWallet(l.offer.lender, 'the desk')
-      confirm('Approve the USDC, then fund')
+      confirm(`Approve the ${SYM}, then fund`)
       await W.fund(l.id)
       await post('lender/funded', { loan: l.id })
-      toast('Funded. The USDC waits in the contract until the guardians see the ZEC')
+      toast(`Funded. The ${SYM} waits in the contract until the guardians see the ZEC`)
     },
     'lender/cancel': async (btn) => {
       const l = loanById(last, btn.dataset.loan)
       needWallet(l.offer.lender, 'the desk')
-      confirm('Cancel the loan on Base')
+      confirm(`Cancel the loan on ${NETS}`)
       await W.cancel(l.id)
       await post('lender/cancelled', { loan: l.id })
-      toast('Cancelled. The USDC and fees are back in your wallet; any ZEC sent goes back to the borrower')
+      toast(`Cancelled. The ${SYM} and fees are back in your wallet; any ZEC sent goes back to the borrower`)
     },
   }
 

@@ -1,11 +1,13 @@
 // Where everything is. The Zcash side runs in WSL (e2e/stack.sh); Windows reaches it on
-// localhost. Base side: the deployed HypothecLoans (usdc/deployments) and the four TEST
-// wallets in ~/.hypothec/testnet-wallets.json (outside OneDrive).
+// localhost. Dollar side: the chain picked by HYPOTHEC_CHAIN (chains.ts), the HypothecLoans
+// deployed there (usdc/deployments) and the TEST wallets in ~/.hypothec/testnet-wallets.json
+// (outside OneDrive; the same keys on every EVM chain).
 import { existsSync, readFileSync } from "fs";
 import { homedir } from "os";
 import { join } from "path";
 import type { Abi, Address, Hex } from "viem";
 import { ZEC_NETWORK } from "./zec";
+import { CHAIN } from "./chains";
 import artifact from "../../usdc/artifacts/contracts/HypothecLoans.sol/HypothecLoans.json";
 
 export const ROLES = ["borrower", "lender", "refereeA", "refereeB"] as const;
@@ -17,12 +19,13 @@ export const CONTROL_URL = process.env.HYPOTHEC_PARTY_HOST ?? "http://127.0.0.1:
 export const LOANBOOK_PORT = Number(process.env.HYPOTHEC_LOANBOOK_PORT ?? 7900);
 export const LOANBOOK_URL = process.env.HYPOTHEC_LOANBOOK ?? `http://127.0.0.1:${LOANBOOK_PORT}`;
 
-export const USDC: Address = "0x036CbD53842c5426634e7929541eC2318f3dCF7e"; // Circle, Base Sepolia
-export const EXPLORER = "https://sepolia.basescan.org";
+/// The stablecoin lent and repaid on this chain (USDC on Base, USDG on Robinhood Chain).
+export const USDC: Address = CHAIN.stable.address;
+export const EXPLORER = CHAIN.explorer;
 export const LOANS_ABI = artifact.abi as Abi;
-export const LOANS: Address = JSON.parse(
-  readFileSync(join(__dirname, "..", "..", "usdc", "deployments", "base-sepolia.json"), "utf8"),
-).HypothecLoans;
+const DEPLOYMENT = join(__dirname, "..", "..", "usdc", "deployments", CHAIN.deployments);
+if (!existsSync(DEPLOYMENT)) throw new Error(`HypothecLoans is not deployed on ${CHAIN.label} yet: run usdc/scripts/deploy.ts ${CHAIN.key}`);
+export const LOANS: Address = JSON.parse(readFileSync(DEPLOYMENT, "utf8")).HypothecLoans;
 
 // Read when present: the rules and loanbook tests (CI) run without any wallet file, and a
 // role's key is asked for only when something acts as that role.

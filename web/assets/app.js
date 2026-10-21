@@ -545,9 +545,8 @@
       feat.hidden = !top3.length
       feat.markup = top3
         .map((d) => `<button class="feat" type="button" data-open="borrow" data-desk="${esc(d.owner)}">
-          <span class="feat-head">${avatar(d)}<b>${esc(d.name)}</b><i class="pill pill-sm">${usdc(d.availableUsdc)} available</i></span>
-          <span class="feat-rate"><b>${pct(d.aprBps)}</b><sup>APR</sup></span>
-          <span class="feat-foot"><em>${term(d.termSeconds)} · liquidation at ${pct(d.liquidationLtvBps)} LTV${d.instant ? ' · instant' : ''}</em><span class="feat-go">${'\u2192'}</span></span>
+          ${avatar(d)}<span class="feat-main"><b>${esc(d.name)}</b><em>${term(d.termSeconds)} · ${usdc(d.availableUsdc)} available${d.instant ? ' · instant' : ''}</em></span>
+          <span class="feat-rate"><b>${pct(d.aprBps)}</b><sup>APR</sup></span><span class="feat-go">${'→'}</span>
         </button>`)
         .join('')
     }
@@ -598,6 +597,33 @@
     if (e.target.matches('[data-input="amount"]') && last) paintMarkets(last)
   })
 
+  /* Dialogs close from their X, from a click on the dimmed backdrop, and from the browser's
+     Back button: opening one adds a history entry, so Back closes it and stays on the page. */
+  document.addEventListener('click', (e) => {
+    const x = e.target.closest('[data-close]')
+    if (x) return void x.closest('dialog')?.close()
+    if (e.target.matches('dialog[open]')) {
+      const r = e.target.getBoundingClientRect()
+      const inside = e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom
+      if (!inside) e.target.close()
+    }
+  })
+  /* Leaving from an open dialog replaces its history entry, so Back skips straight past it. */
+  const go = (url) => (history.state?.dialog ? location.replace(url) : (location.href = url))
+  const openDialog = (sel) => {
+    const d = $(sel)
+    if (!d || d.open) return
+    d.showModal()
+    history.pushState({ dialog: sel }, '')
+  }
+  document.addEventListener('close', (e) => {
+    // Closed by X, Escape or the backdrop: drop the history entry it added.
+    if (e.target.matches?.('dialog') && history.state?.dialog) history.back()
+  }, true)
+  window.addEventListener('popstate', () => {
+    $$('dialog[open]').forEach((d) => d.close())
+  })
+
   /* Borrow and Lend open their dialogs from a row; Lend starts from that desk's terms, or
      from your own order when you have one. */
   document.addEventListener('click', async (e) => {
@@ -607,19 +633,19 @@
     if (!me()) return
     if (open.dataset.open === 'borrow') {
       const going = myBasket(last)
-      if (going && basketStep(last, going) !== 'closed') return void (location.href = 'loan.html')
+      if (going && basketStep(last, going) !== 'closed') return void go('loan.html')
       chosen = open.dataset.desk
       unticked.clear()
       refreshBalances(true)
       paintMarkets(last)
-      $('[data-app="borrow-dialog"]')?.showModal()
+      openDialog('[data-app="borrow-dialog"]')
     } else {
       const mine = myDesk(last)
       const from = last.desks.find((d) => same(d.owner, open.dataset.desk))
       const base = mine || from || { ...last.testnet.deskTerms, name: '' }
       fillDeskForm({ ...base, name: mine ? mine.name : '', maxUsdc: mine ? mine.maxUsdc : base.maxUsdc, lenderZec: mine ? mine.lenderZec : '' })
       set('lend-title', mine ? `Update ${mine.name}` : from ? `Lend on ${from.name}'s terms` : 'Post an order')
-      $('[data-app="lend-dialog"]')?.showModal()
+      openDialog('[data-app="lend-dialog"]')
     }
   })
 
@@ -1117,7 +1143,7 @@
     'borrower/request': async () => {
       if (!me()) return connectWallet()
       const going = myBasket(last)
-      if (going && basketStep(last, going) !== 'closed') return void (location.href = 'loan.html')
+      if (going && basketStep(last, going) !== 'closed') return void go('loan.html')
       const f = fillOrders(last)
       if (!f.pieces.length) throw new Error('Type an amount')
       toast('Sending your request…')
@@ -1127,7 +1153,7 @@
         usdcAddress: $('[data-input="usdc-address"]').value.trim() || me(),
         pieces: f.pieces.map((p) => ({ desk: p.desk.owner, amountUsdc: Number(p.take) / 1e6 })),
       })
-      location.href = 'loan.html'
+      go('loan.html')
     },
     'borrower/accept': async () => {
       const b = myBasket(last)

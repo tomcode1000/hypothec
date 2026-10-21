@@ -17,7 +17,7 @@ import { extname, join, normalize, sep } from "path";
 import { getAddress, isAddress, type Hex } from "viem";
 import { chainNow, getLoan, isOverdue, usdcBalance } from "./base";
 import { BASE_ADDRESS, baseAddress, EXPLORER, LOANS, TEST_ZEC_ADDRESS, USDC } from "./config";
-import { CHAIN } from "./chains";
+import { CHAIN, CHAINS } from "./chains";
 import {
   borrowerRelease, buildOffer, keySetup, lenderCancel, lenderFund, lenderLiquidate, lenderOffer, loanbook,
   lockManyFromTestWallet, setPriceOverride, testLenderOf, topUpFromTestWallet,
@@ -236,6 +236,8 @@ async function state() {
       id: CHAIN.chain.id, key: CHAIN.key, label: CHAIN.label, short: CHAIN.short, rpcs: CHAIN.rpcs, explorer: CHAIN.explorer,
       symbol: CHAIN.stable.symbol, permitName: CHAIN.stable.permitName, permitVersion: CHAIN.stable.permitVersion, faucets: CHAIN.faucets,
       mintable: !!CHAIN.stable.mintable,
+      /// Every chain this site offers, for the switch (this one first).
+      all: CHAIN_LIST,
       loans: LOANS, usdc: USDC, zecPrefix: ZEC_PREFIX,
     },
     addresses: BASE_ADDRESS,
@@ -673,9 +675,46 @@ async function body(req: IncomingMessage) {
   return chunks.length ? JSON.parse(Buffer.concat(chunks).toString("utf8")) : {};
 }
 
+/*
+  One site, several chains. Each dollar-side chain runs its own API (its own loanbook,
+  desks, guardians and contract); this one forwards /x/<chain>/api/... to the others, named in
+  HYPOTHEC_PEERS ("robinhood=http://127.0.0.1:7911"). The browser picks a chain with the
+  switch in the top bar and sends its calls there; /x/<this chain>/api/ is this API itself.
+*/
+const PEERS: Record<string, string> = Object.fromEntries(
+  (process.env.HYPOTHEC_PEERS ?? "").split(",").map((x) => x.trim().split("=")).filter((x) => x.length === 2 && x[0] in CHAINS && x[0] !== CHAIN.key),
+);
+const CHAIN_LIST = [CHAIN.key, ...Object.keys(PEERS)].map((key) => ({ key, label: CHAINS[key as keyof typeof CHAINS].label, short: CHAINS[key as keyof typeof CHAINS].short, symbol: CHAINS[key as keyof typeof CHAINS].stable.symbol }));
+
+async function forward(peer: string, path: string, req: IncomingMessage, res: ServerResponse) {
+  const init: RequestInit = { method: req.method, headers: { "content-type": "application/json" } };
+  if (req.method === "POST") init.body = JSON.stringify(await body(req));
+  try {
+    const r = await fetch(`${peer}${path}`, init);
+    let out = Buffer.from(await r.arrayBuffer());
+    if (path === "/api/state" && r.ok) {
+      // The peer knows only its own chain: give its state this site's whole list, for the switch.
+      const s = JSON.parse(out.toString("utf8"));
+      if (s.chain) s.chain.all = CHAIN_LIST;
+      out = Buffer.from(JSON.stringify(s));
+    }
+    res.writeHead(r.status, { "content-type": r.headers.get("content-type") ?? "application/json" }).end(out);
+  } catch {
+    res.writeHead(502, { "content-type": "application/json" }).end(JSON.stringify({ error: "That chain's server is not answering right now." }));
+  }
+}
+
 recoverBaskets().finally(() =>
   createServer(async (req, res) => {
-    const path = new URL(req.url ?? "/", "http://x").pathname;
+    let path = new URL(req.url ?? "/", "http://x").pathname;
+    const via = /^\/x\/([a-z]+)(\/api\/.*)$/.exec(path);
+    if (via) {
+      if (via[1] !== CHAIN.key) {
+        if (!PEERS[via[1]]) return void res.writeHead(404, { "content-type": "application/json" }).end(JSON.stringify({ error: `no ${via[1]} chain on this site` }));
+        return forward(PEERS[via[1]], via[2], req, res);
+      }
+      path = via[2];
+    }
     try {
       if (!path.startsWith("/api/")) return serveStatic(path, req, res);
       const out = req.method === "GET" && path === "/api/state" ? await snapshot() : await act(path, await body(req));

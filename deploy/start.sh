@@ -42,5 +42,19 @@ npx ts-node --transpile-only src/serve.ts all &
 wait_port 7900
 node /app/deploy/seed-desks.js || echo "seed desks: skipped"
 
+# A second loan chain beside the first (the switch in the top bar): its own loanbook,
+# guardians, desks and API on inside ports; the public site forwards /x/<chain>/api/ to it.
+# Off with HYPOTHEC_SECOND_CHAIN=none.
+PEERS=""
+SECOND=${HYPOTHEC_SECOND_CHAIN:-robinhood}
+if [[ "$SECOND" != "none" && "$SECOND" != "${HYPOTHEC_CHAIN:-base}" ]]; then
+  echo "== second chain: $SECOND"
+  HYPOTHEC_CHAIN=$SECOND HYPOTHEC_LOANBOOK_PORT=7901 HYPOTHEC_LOANBOOK_DB=/data/.hypothec/loanbook-$SECOND.sqlite     npx ts-node --transpile-only src/serve.ts all &
+  wait_port 7901
+  HYPOTHEC_CHAIN=$SECOND HYPOTHEC_LOANBOOK_PORT=7901 node /app/deploy/seed-desks.js || echo "seed desks ($SECOND): skipped"
+  HYPOTHEC_CHAIN=$SECOND HYPOTHEC_LOANBOOK_PORT=7901 HYPOTHEC_API_PORT=7911 HYPOTHEC_API_HOST=127.0.0.1     npx ts-node --transpile-only src/api.ts &
+  PEERS="$SECOND=http://127.0.0.1:7911"
+fi
+
 echo "== website on :${PORT:-10000}"
-HYPOTHEC_API_HOST=0.0.0.0 HYPOTHEC_API_PORT=${PORT:-10000} exec npx ts-node --transpile-only src/api.ts
+HYPOTHEC_PEERS=$PEERS HYPOTHEC_API_HOST=0.0.0.0 HYPOTHEC_API_PORT=${PORT:-10000} exec npx ts-node --transpile-only src/api.ts

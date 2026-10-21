@@ -176,7 +176,7 @@ const side = (_label, items, current) => `<header class="side topnav">
   <a class="brand" href="index.html"><span class="mark">${MARK}</span><span>Hypothec</span></a>
   ${navList(items, current)}
   <div class="topnav-end">
-    <span class="topbar-net"><i></i><span data-app="net-label">Base Sepolia · Zcash</span></span>
+    <div class="chainsw" data-app="chain-switch" role="group" aria-label="Loan chain" hidden></div><span class="topbar-net" data-app="net-solo"><i></i><span data-app="net-label">Base Sepolia · Zcash</span></span>
     ${walletBtn('Connect wallet')}
     <button class="theme theme-icon" type="button" data-theme-toggle aria-label="Switch theme">${ic('sun')}<span data-theme-label hidden>Dark mode</span></button>
   </div>
@@ -249,7 +249,7 @@ const borrowDialog = () => `<dialog class="dialog dialog-wide" data-app="borrow-
     </div>
     <div class="mini" role="table"><div class="mini-row mini-head" role="row"><span></span><span>Desk</span><span>Rate</span><span>Available</span><span>You take</span></div><div data-app="fill-rows"></div></div>
     <p class="fine" data-app="fill-note"></p>
-    <div class="sheet">${line('You lock', 'q-collateral')}${line('You owe in all', 'q-owed')}${line('Rate', 'q-apr')}${line('Due', 'q-due')}</div>
+    <div class="sheet">${line('Loan chain', 'q-chain')}${line('You lock', 'q-collateral')}${line('You owe in all', 'q-owed')}${line('Rate', 'q-apr')}${line('Due', 'q-due')}</div>
     <p class="fine">Sized at each desk's start LTV and the one-hour average price your guardians use, <b data-app="sizing-price">—</b>.</p>
     <div class="preflight" data-app="preflight-borrow"></div>
     ${btn('Request', { act: 'borrower/request', wide: true, key: 'ask-btn' })}

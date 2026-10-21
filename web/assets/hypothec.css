@@ -5545,3 +5545,75 @@ body::after {
     margin: 0 auto;
   }
 }
+
+/* The loan-chain switch, beside the wallet: one segmented pill, the chain in use raised. */
+.chainsw {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 40px;
+  padding: 3px;
+  border: 1px solid var(--hair);
+  border-radius: var(--r-pill);
+  background: var(--well);
+}
+
+.chainsw[hidden] {
+  display: none;
+}
+
+.chain-opt {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 32px;
+  padding: 0 13px;
+  border: 0;
+  border-radius: var(--r-pill);
+  background: transparent;
+  font: 500 13px var(--sans);
+  color: var(--ink-3);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s, box-shadow 0.15s;
+}
+
+.chain-opt:hover {
+  color: var(--ink);
+}
+
+.chain-opt[aria-pressed='true'] {
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--lift);
+  cursor: default;
+}
+
+.chain-opt i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ink-4);
+}
+
+.chain-base i {
+  background: #0052ff;
+}
+
+.chain-robinhood i {
+  background: #00c805;
+}
+
+.chain-opt:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+@media (max-width: 960px) {
+  .chain-opt span {
+    font-size: 12px;
+  }
+  .chain-opt {
+    padding: 0 10px;
+  }
+}

@@ -30,6 +30,53 @@
   const $$ = (sel, root = document) => [...root.querySelectorAll(sel)]
   const view = document.body.dataset.view
 
+  /* The loan chain this visitor picked with the switch (Base or Robinhood). Every API call
+     goes to that chain's server; with no pick, to this site's own. ?chain=robinhood in a link
+     picks it too, so a shared link opens on the right chain. */
+  const CHAIN_KEY = (() => {
+    const q = new URLSearchParams(location.search).get('chain')
+    try {
+      if (q) localStorage.setItem('hypothec-chain', q)
+      return q || localStorage.getItem('hypothec-chain') || ''
+    } catch (e) {
+      return q || ''
+    }
+  })()
+  const api = (p) => (CHAIN_KEY ? `/x/${CHAIN_KEY}/api/${p}` : `/api/${p}`)
+  /* A pick this site no longer offers falls back to its own chain. */
+  const apiFetch = async (p, init) => {
+    const res = await fetch(api(p), init)
+    if (CHAIN_KEY && (res.status === 404 || res.status === 502) && p === 'state') {
+      try { localStorage.removeItem('hypothec-chain') } catch (e) {}
+      location.reload()
+    }
+    return res
+  }
+
+  /* The switch, in the top bar beside the wallet: one button per chain this site offers. */
+  function paintChainSwitch(s) {
+    const all = s.chain?.all || []
+    const here = s.chain?.key
+    $$('[data-app="chain-switch"]').forEach((el) => {
+      el.hidden = all.length < 2
+      const key = `${here}:${all.map((c) => c.key).join(',')}`
+      if (el.dataset.key === key) return
+      el.dataset.key = key
+      el.innerHTML = all
+        .map((c) => `<button type="button" class="chain-opt chain-${c.key}" data-chain="${c.key}" aria-pressed="${c.key === here}" title="${c.label}: loans in ${c.symbol}"><i aria-hidden="true"></i><span>${c.short}</span></button>`)
+        .join('')
+    })
+    $$('[data-app="net-solo"]').forEach((el) => (el.hidden = all.length >= 2))
+  }
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-chain]')
+    if (!b || b.getAttribute('aria-pressed') === 'true') return
+    try { localStorage.setItem('hypothec-chain', b.dataset.chain) } catch (err) {}
+    const u = new URL(location.href)
+    u.searchParams.delete('chain')
+    location.href = u.toString()
+  })
+
   /* ---------------------------------------------------------- theme, rail -- */
 
   const root = document.documentElement
@@ -61,7 +108,8 @@
     const live = (key, text) => $$(`[data-live="${key}"]`).forEach((el) => (el.textContent = text))
     const landing = async () => {
       try {
-        const s = await (await fetch('/api/state')).json()
+        const s = await (await apiFetch('state')).json()
+        paintChainSwitch(s)
         const c = s.chain || {}
         $$('[data-sym]').forEach((el) => (el.textContent = c.symbol || 'USDC'))
         $$('[data-net]').forEach((el) => (el.textContent = c.short || 'Base'))
@@ -1089,6 +1137,10 @@
       $$('[data-sym]').forEach((el) => { if (el.textContent !== SYM) el.textContent = SYM })
       $$('[data-net]').forEach((el) => { if (el.textContent !== NETS) el.textContent = NETS })
       $$('[data-net-full]').forEach((el) => { if (el.textContent !== NET) el.textContent = NET })
+      set('q-chain', `${NET} \u00b7 ${SYM}`)
+      paintChainSwitch(s)
+      const who = me()
+      if (who) $$('[data-app="wallet-label"] em').forEach((el) => { if (el.textContent !== NET) el.textContent = NET })
     }
     if (!configured && s.chain && W) {
       W.configure(s.chain)
@@ -1174,7 +1226,7 @@
   let firstPoll = true
   async function refresh() {
     try {
-      const res = await fetch('/api/state')
+      const res = await apiFetch('state')
       const s = await res.json()
       if (s.error) throw new Error(s.error)
       paint(s)
@@ -1228,7 +1280,7 @@
   }
 
   async function post(act, body = {}) {
-    const res = await fetch(`/api/${act}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
+    const res = await apiFetch(act, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
     const out = await res.json()
     if (!res.ok) throw new Error(out.error)
     return out

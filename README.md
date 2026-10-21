@@ -109,6 +109,10 @@ the test wallet, the loanbook and both guardians, and the website with the desk 
 Every push to `main` runs the tests, builds the image and deploys it
 (`.github/workflows/deploy.yml`, `render.yaml`).
 
+The container runs two loan chains, Base Sepolia (USDC) and Robinhood Chain testnet (Test
+USDC anyone can mint), each with its own loanbook, guardians and desks; the switch beside the
+wallet picks one (`HYPOTHEC_SECOND_CHAIN=none` turns the second off).
+
 Hosting the guardians next to the website is a **demo** arrangement. In production each
 guardian runs at its own operator (see below).
 

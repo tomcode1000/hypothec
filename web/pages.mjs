@@ -21,7 +21,7 @@ import { borrowDialog, borrowerSide, btn, card, cardHead, deskSide, guardian, he
 const header = `<header class="site-head"><div class="shell site-head-in">
   <a class="brand" href="index.html"><span class="mark">${MARK}</span><span>Hypothec</span></a>
   <nav class="site-links" aria-label="Primary"><a href="markets.html">Markets</a><a href="loan.html">Portfolio</a><a href="log.html">Guardians</a><a href="docs.html">Docs</a></nav>
-  <div class="site-end"><button class="theme-dot" type="button" data-theme-toggle aria-label="Switch between light and dark"></button>${btn('Read the docs', { href: 'docs.html', tone: 'ghost' })}${btn('Open the app', { href: 'markets.html' })}</div>
+  <div class="site-end"><div class="chainsw" data-app="chain-switch" role="group" aria-label="Loan chain" hidden></div><button class="theme-dot" type="button" data-theme-toggle aria-label="Switch between light and dark"></button>${btn('Read the docs', { href: 'docs.html', tone: 'ghost' })}${btn('Open the app', { href: 'markets.html' })}</div>
 </div></header>`
 
 /* The loan's structure, as a term sheet would state it. No figure here: each desk

@@ -155,6 +155,16 @@ cancelled loan never paid the borrower any USDC. Desk agents cancel on their own
 deadline passes; a desk on a browser wallet gets a "Cancel and refund" button; the
 borrower gets "Get ZEC back". Tested: flow.ts `cancel`.
 
+**D24. Two loan chains, one site, a switch (21 Oct, user).** The dollar side runs on Base
+Sepolia (Circle's test USDC) or Robinhood Chain testnet. Paxos's test USDG faucet is closed
+in the user's country, so Robinhood uses Test USDC (usdc/contracts/test/TestUSDC.sol, the
+same 6 decimals and permit, anyone can mint; the app offers "Get 20 test tUSDC"). Each chain
+runs its own loanbook, guardians, desks and API, so a loan, its desk and its guardians never
+mix chains; the public API forwards /x/<chain>/api/ to the other (HYPOTHEC_PEERS), and the
+switch beside the wallet picks one and remembers it (?chain=robinhood in a link works too).
+The Borrow dialog names the chain and token. The Zcash side (party host, relay, test wallet)
+is shared. flow.ts repay passes on Robinhood.
+
 **D10. Desk, not pool (8 Oct; decided 14 Oct with D14).** The borrower app shows
 the desk like a pool card (available USDC, rate, term, start LTV, price, Borrow), but the
 money is one lender's. A depositor pool would need someone to hold the lender's key

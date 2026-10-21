@@ -4652,3 +4652,205 @@ label.tr {
     transition: none;
   }
 }
+
+/* ------------------------------------------------------------- the four keys --
+   The one idea only Hypothec has, drawn as a key ring: the four holders of every vault
+   across the top, and below them each thing that three of them can do, with the three
+   marked in the same four seats. Gold is the borrower's key throughout. */
+
+.keys4 {
+  padding-block: 96px 112px;
+}
+
+.keys4-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  align-items: end;
+  gap: 16px 64px;
+}
+
+.keys4-head .label-caps {
+  grid-column: 1 / -1;
+}
+
+.keys4-head .h-display {
+  margin: 0;
+  max-width: 14ch;
+  text-align: left;
+}
+
+.keys4-head p {
+  max-width: 48ch;
+  margin: 0;
+  font-size: 17px;
+  line-height: 1.6;
+  color: var(--ink-3);
+}
+
+.keyring {
+  margin-top: 48px;
+  padding: 8px;
+  border: 1px solid var(--hair);
+  border-radius: var(--r-xl);
+  background: var(--frame);
+  box-shadow: var(--lift), var(--rim);
+}
+
+.keyring > * {
+  background: var(--surface);
+}
+
+.seats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid var(--hair);
+  border-radius: 16px 16px 6px 6px;
+}
+
+.seat {
+  display: grid;
+  align-content: start;
+  gap: 4px;
+  padding: 18px 18px 20px;
+  border-radius: var(--r-md);
+  background: var(--well);
+}
+
+.seat-tag {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  margin-bottom: 10px;
+  border-radius: 50%;
+  background: var(--ink);
+  color: var(--ground);
+  font: 600 12px var(--mono);
+  letter-spacing: -0.02em;
+}
+
+.seat-you .seat-tag {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.seat b {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.seat > span:last-child {
+  font-size: 13.5px;
+  color: var(--ink-3);
+}
+
+.moves {
+  margin-top: 6px;
+  border: 1px solid var(--hair);
+  border-radius: 6px 6px 16px 16px;
+  overflow: hidden;
+}
+
+.move {
+  display: grid;
+  grid-template-columns: 132px minmax(0, 200px) minmax(0, 1fr);
+  align-items: center;
+  gap: 24px;
+  min-height: 64px;
+  padding: 10px 22px;
+}
+
+.move + .move {
+  border-top: 1px solid var(--hair);
+}
+
+.move b {
+  font-size: 15.5px;
+  font-weight: 600;
+}
+
+.move > span:last-child {
+  font-size: 14px;
+  color: var(--ink-3);
+}
+
+.kds {
+  display: flex;
+  gap: 10px;
+}
+
+.kd {
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid var(--border-2);
+  border-radius: 50%;
+}
+
+.kd-on {
+  border-color: var(--ink);
+  background: var(--ink);
+}
+
+.kd-you {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+/* Two keys move nothing: the row is struck through, quietly. */
+.move-none {
+  background: color-mix(in srgb, var(--well) 55%, var(--surface));
+}
+
+.move-none .kds {
+  position: relative;
+}
+
+.move-none .kds::after {
+  content: "";
+  position: absolute;
+  left: -4px;
+  right: -4px;
+  top: 50%;
+  height: 1.5px;
+  background: var(--bad);
+  transform: rotate(-8deg);
+}
+
+.move-none b {
+  color: var(--bad);
+}
+
+.keyring-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 28px;
+  margin-top: 8px;
+  padding: 10px 22px;
+  border: 1px solid var(--hair);
+  border-radius: var(--r-md);
+}
+
+.keyring-foot .btn-link {
+  min-height: 32px;
+  padding: 0;
+  font-size: 14px;
+}
+
+@media (max-width: 960px) {
+  .keys4 {
+    padding-block: 56px 72px;
+  }
+  .keys4-head {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .seats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .move {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
+    padding: 16px 18px;
+  }
+}

@@ -19,10 +19,7 @@ import { borrowDialog, borrowerSide, btn, card, cardHead, deskSide, guardian, he
 
 /* --------------------------------------------------------------- landing -- */
 
-/* A thin line above the header: what this build is, in one sentence. */
-const announce = `<div class="announce"><span class="dot dot-on"></span><b>Live on Zcash testnet and <span data-net-full>Base Sepolia</span>.</b><span class="announce-sub">Test coins only.</span><a href="markets.html">Open the app</a></div>`
-
-const header = `${announce}<header class="site-head"><div class="shell site-head-in">
+const header = `<header class="site-head"><div class="shell site-head-in">
   <a class="brand" href="index.html"><span class="mark">${MARK}</span><span>Hypothec</span></a>
   <nav class="site-links" aria-label="Primary"><a href="markets.html">Markets</a><a href="loan.html">Portfolio</a><a href="log.html">Guardians</a><a href="docs.html">Docs</a></nav>
   <div class="site-end"><button class="theme-dot" type="button" data-theme-toggle aria-label="Switch between light and dark"></button>${btn('Read the docs', { href: 'docs.html', tone: 'ghost' })}${btn('Open the app', { href: 'markets.html' })}</div>
@@ -77,12 +74,22 @@ const DISCLOSURES = [
   ['Desks', 'Each desk lends its own money and does its own customer checks. There is no shared pool: pooling lenders would need a custodian for the lender’s key share.'],
 ]
 
-/* What Hypothec is, as three things a visitor can open. */
-const WHAT = [
-  ['The app', 'Borrow or lend today', 'Fill one borrow from several desks’ orders, or post your own order with your rate, term and loan-to-value levels.', 'Open the app', 'markets.html', ''],
-  ['The loan contract', 'The dollars, in the open', 'Terms, payout, repayment and the guardians’ fees live in one contract on <span data-net>Base</span>. It stores nothing about your ZEC.', 'Verify the contract', '#', 'data-live="contract" target="_blank" rel="noopener"'],
-  ['The guardians', 'Rules, not people', 'Two independent operators run published code. It signs only what the rules allow, and logs every decision with its reason.', 'See every decision', 'log.html', ''],
+/* The four keys of every vault, and what any three of them can do together. The order of
+   the seats is fixed (borrower, desk, guardian A, guardian B), so each row reads as a pattern. */
+const SEATS = [
+  ['You', 'The borrower', 'Your ZEC, your share of the key'],
+  ['Desk', 'The lending desk', 'Lends the dollars, holds one share'],
+  ['G·A', 'Guardian A', 'Rules software at one operator'],
+  ['G·B', 'Guardian B', 'Rules software at another'],
 ]
+const MOVES = [
+  [[1, 0, 1, 1], 'Your ZEC back', 'Only after the contract says repaid, and only to the address you signed.'],
+  [[0, 1, 1, 1], 'A liquidation', 'Only past the published line or the due date, with the rest returned to you in the same transaction.'],
+  [[1, 1, 1, 0], 'Close by agreement', 'You, the desk and either guardian, when the other guardian is offline.'],
+  [[0, 0, 1, 1], 'Nothing', 'Any two keys move nothing. Not the desk with a guardian, not both guardians together.'],
+]
+
+const keyDots = (pattern) => pattern.map((on, i) => `<i class="kd${on ? ' kd-on' : ''}${on && i === 0 ? ' kd-you' : ''}"></i>`).join('')
 
 /* The postcard: what a loan on a public chain shows, next to what a Hypothec loan shows. */
 const POSTCARD_PUBLIC = [
@@ -99,9 +106,9 @@ const POSTCARD_SEALED = [
 ]
 
 const TRUST = [
-  ['Three of four keys', 'Every vault needs three of its four holders to move. The desk with one guardian cannot; both guardians together cannot.'],
   ['Code, not people', 'Guardians are software with a published fingerprint. Nobody at an operator reads your loan or clicks approve.'],
   ['The surplus comes back', 'A liquidation pays the desk what it is owed and returns the rest to you in the same transaction, or no guardian signs it.'],
+  ['Every decision on the record', 'Each guardian signs what it approved or refused, and why, with the price and the rule. Anyone can read the log.'],
 ]
 
 const pcRows = (rows, sealed) => rows.map(([k, v]) => `<div class="pc-row"><span>${k}</span><b${sealed && /•|Shielded/.test(v) ? ' class="sealed"' : ''}>${v}</b></div>`).join('')
@@ -123,8 +130,17 @@ const index = () =>
     </div>
   </section>
 
-  <section class="shell what" id="what">
-    ${WHAT.map(([label, title, text, cta, href, attr]) => `<div class="what-col"><span class="label-caps">${label}</span><h3>${title}</h3><p>${text}</p><a class="btn-link" href="${href}" ${attr}>${cta} <span aria-hidden="true">→</span></a></div>`).join('')}
+  <section class="shell keys4" id="what">
+    <div class="keys4-head">
+      <span class="label-caps">One vault per loan</span>
+      <h2 class="h-display">Four keys. Any three move it.</h2>
+      <p>Every loan gets its own shielded vault. Its key is split four ways when the loan opens and never exists in one place. What three of the four can do together is all anyone can do.</p>
+    </div>
+    <div class="keyring">
+      <div class="seats">${SEATS.map(([tag, name, line], i) => `<div class="seat${i === 0 ? ' seat-you' : ''}"><span class="seat-tag">${tag}</span><b>${name}</b><span>${line}</span></div>`).join('')}</div>
+      <div class="moves">${MOVES.map(([pattern, what, why], i) => `<div class="move${i === MOVES.length - 1 ? ' move-none' : ''}"><span class="kds" aria-label="${pattern.reduce((n, x) => n + x, 0)} of 4 keys">${keyDots(pattern)}</span><b>${what}</b><span>${why}</span></div>`).join('')}</div>
+      <div class="keyring-foot"><a class="btn-link" href="markets.html">Open the app <span aria-hidden="true">→</span></a><a class="btn-link" href="#" data-live="contract" target="_blank" rel="noopener">Verify the contract <span aria-hidden="true">→</span></a><a class="btn-link" href="log.html">See every decision <span aria-hidden="true">→</span></a></div>
+    </div>
   </section>
 
   <section class="shell postcard">
@@ -169,7 +185,7 @@ const index = () =>
   </section>
 
   <section class="shell trust">
-    <h2 class="h-display">No single party<br/>can move it</h2>
+    <h2 class="h-display">What you can<br/>check yourself</h2>
     <div class="trust-cols">${TRUST.map(([t, b]) => `<div><h3>${t}</h3><p>${b}</p></div>`).join('')}</div>
   </section>
 </main>

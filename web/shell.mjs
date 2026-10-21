@@ -200,7 +200,7 @@ const heading = (title, sub, chips = []) => `<header class="heading">
 </header>`
 
 /** The featured desks: the best rates on offer, each a card with its rate large (app.js). */
-const featured = () => `<div class="featured" data-app="featured"><div class="feat feat-skel"></div><div class="feat feat-skel"></div><div class="feat feat-skel"></div></div>`
+const featured = () => `<div class="featured" data-app="featured"><div class="feat feat-skel"></div><div class="feat feat-skel"></div></div>`
 
 /** Filter chips and a search box over the order book. */
 const filters = () => `<div class="filters">
@@ -217,7 +217,7 @@ const filters = () => `<div class="filters">
  * The order book: one row per desk's order, its terms in columns, Borrow and Lend at the
  * end of the row. Rows are drawn by app.js from /api/state; each action opens a dialog.
  */
-const markets = () => `${featured()}${filters()}<section class="card table-card">
+const markets = () => `${filters()}<section class="card table-card">
   <div class="table-top"><span class="showing" data-app="m-count">Orders</span><span class="fine-inline">Each desk's terms are signed by its wallet</span></div>
   <div class="table table-book" role="table">
     <div class="tr th" role="row">
@@ -316,4 +316,4 @@ const making = () => `<ol class="making" data-app="making">
   <li data-make="keys"><span class="mk"></span><b>Each made its share of one key</b><em>the whole key never exists anywhere</em></li>
 </ol>`
 
-export { v, pill, tile, card, cardHead, btn, line, stat, info, quest, heading, markets, borrowDialog, lendDialog, portfolioTabs, loanPick, stage, making, health, guardian, vaultArt, borrowerSide, deskSide, top, caret, QUEST }
+export { featured, v, pill, tile, card, cardHead, btn, line, stat, info, quest, heading, markets, borrowDialog, lendDialog, portfolioTabs, loanPick, stage, making, health, guardian, vaultArt, borrowerSide, deskSide, top, caret, QUEST }

@@ -1,5 +1,5 @@
 import { MARK, appPage, page } from './chrome.mjs'
-import { borrowDialog, borrowerSide, btn, card, cardHead, deskSide, guardian, heading, health, info, lendDialog, line, loanPick, making, markets, pill, portfolioTabs, quest, stage, vaultArt } from './shell.mjs'
+import { featured, borrowDialog, borrowerSide, btn, card, cardHead, deskSide, guardian, heading, health, info, lendDialog, line, loanPick, making, markets, pill, portfolioTabs, quest, stage, vaultArt } from './shell.mjs'
 
 /**
  * The pages, organised as Quorum's are: each app screen carries only the work done on
@@ -216,6 +216,7 @@ const marketsPage = () =>
         <span><em>Guardians online</em><b data-app="m-guards">—</b></span>
         <span><em>ZEC price</em><b data-app="price">—</b></span>
       </div>
+      ${featured()}
     </div>
     <div class="bez quote4"><div class="bez-in">
       <span class="label-caps">What your ZEC can borrow</span>

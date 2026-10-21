@@ -5912,3 +5912,114 @@ body::after {
   width: 100%;
   min-width: 0;
 }
+
+/* Markets heading, balanced: the figures sit under the subtitle and the best desks under
+   them, so the left column ends where the quote card does; both kept compact. */
+.heading-mk {
+  align-items: start;
+  gap: 28px;
+  padding: 32px 0 28px;
+}
+
+.mk-intro {
+  display: grid;
+  gap: 0;
+}
+
+.mk-intro .heading-sub {
+  margin-top: 8px;
+}
+
+.mk-intro .mk-stats {
+  margin-top: 22px;
+}
+
+.mk-stats > span {
+  padding: 11px 16px;
+  gap: 2px;
+}
+
+.mk-stats b {
+  font-size: 18px;
+}
+
+.mk-intro .featured {
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  margin: 14px 0 0;
+}
+
+.mk-intro .feat {
+  padding: 10px 14px;
+}
+
+.quote4 .bez-in {
+  gap: 10px;
+  padding: 16px 18px 18px;
+}
+
+.quote4 .amount {
+  height: 44px;
+}
+
+.q4-in .amount input {
+  font-size: 19px;
+}
+
+.q4-out {
+  padding: 11px 14px;
+  gap: 2px;
+}
+
+.q4-out b {
+  font-size: 26px;
+}
+
+.quote4 .btn {
+  min-height: 44px;
+}
+
+.heading-mk {
+  align-items: stretch;
+}
+
+.heading-mk > .mk-intro {
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+}
+
+.mk-stats {
+  flex-wrap: nowrap;
+}
+
+.mk-stats > span {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.heading-mk > .quote4 {
+  display: flex;
+}
+
+.heading-mk > .quote4 > .bez-in {
+  flex: 1;
+  align-content: space-between;
+}
+
+@media (max-width: 960px) {
+  .mk-stats {
+    flex-wrap: wrap;
+  }
+  .mk-stats > span {
+    flex: 1 1 40%;
+  }
+}
+
+.heading-mk > .mk-intro {
+  grid-template-columns: minmax(0, 1fr);
+  justify-content: stretch;
+}
+
+.heading-mk > .mk-intro {
+  align-content: start;
+}

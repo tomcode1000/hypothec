@@ -14,7 +14,7 @@ export interface ChainInfo {
   rpcs: string[];
   explorer: string;
   /// The stablecoin lent and repaid, and its EIP-2612 permit domain.
-  stable: { address: Address; symbol: string; permitName: string; permitVersion: string };
+  stable: { address: Address; symbol: string; permitName: string; permitVersion: string; mintable?: boolean };
   faucets: { gas: string; stable: string };
   /// usdc/deployments/<file>: where the loan contract's address is recorded.
   deployments: string;
@@ -48,8 +48,11 @@ export const CHAINS: Record<ChainInfo["key"], ChainInfo> = {
     short: "Robinhood Chain",
     rpcs: [process.env.HYPOTHEC_RPC ?? "https://rpc.testnet.chain.robinhood.com"],
     explorer: "https://explorer.testnet.chain.robinhood.com",
-    stable: { address: "0x7E955252E15c84f5768B83c41a71F9eba181802F", symbol: "USDG", permitName: "Global Dollar", permitVersion: "1" },
-    faucets: { gas: "https://faucet.testnet.chain.robinhood.com/", stable: "https://faucet.paxos.com/" },
+    // Test USDC (usdc/contracts/test/TestUSDC.sol, scripts/robinhood-setup.ts): Paxos's test
+    // USDG faucet is not open in every country, so anyone can mint this one from the app.
+    // Paxos USDG here is 0x7E955252E15c84f5768B83c41a71F9eba181802F (permit "Global Dollar" v1).
+    stable: { address: "0xdc821cdb076a1b2c5d1ada9a242f33b97d34f0a5", symbol: "tUSDC", permitName: "USDC", permitVersion: "2", mintable: true },
+    faucets: { gas: "https://faucet.testnet.chain.robinhood.com/", stable: "" },
     deployments: "robinhood-testnet.json",
   },
 };

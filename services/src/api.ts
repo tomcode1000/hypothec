@@ -235,6 +235,7 @@ async function state() {
     chain: {
       id: CHAIN.chain.id, key: CHAIN.key, label: CHAIN.label, short: CHAIN.short, rpcs: CHAIN.rpcs, explorer: CHAIN.explorer,
       symbol: CHAIN.stable.symbol, permitName: CHAIN.stable.permitName, permitVersion: CHAIN.stable.permitVersion, faucets: CHAIN.faucets,
+      mintable: !!CHAIN.stable.mintable,
       loans: LOANS, usdc: USDC, zecPrefix: ZEC_PREFIX,
     },
     addresses: BASE_ADDRESS,

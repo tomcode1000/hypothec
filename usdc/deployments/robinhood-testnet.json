@@ -1,0 +1,11 @@
+{
+  "network": "Robinhood Chain testnet",
+  "chainId": 46630,
+  "stable": "tUSDC",
+  "usdc": "0xdc821cdb076a1b2c5d1ada9a242f33b97d34f0a5",
+  "tokenTx": "0x88002211c8fead8b7d1ee6daef6a527e1605fcddf4ab0238634249233928c3d6",
+  "HypothecLoans": "0x1f783221907a1f8845f0b6a3f823ca56ed8556ea",
+  "deployTx": "0x12707d656c9054307caa18bfefea69b71dcadbfa945191c29e5a2937daadd7da",
+  "deployedAt": "2026-10-21T14:36:59.109Z",
+  "previous": []
+}

@@ -444,7 +444,8 @@
     } catch (e) {}
   }
   const eth = (wei) => `${trim((Number(wei) / 1e18).toFixed(6))} ETH`
-  const faucets = () => `<a href="${FAUCET.stable}" target="_blank" rel="noopener">${SYM} faucet</a> · <a href="${FAUCET.gas}" target="_blank" rel="noopener">ETH faucet</a>`
+  let MINTABLE = false
+  const faucets = () => `${MINTABLE ? `<button class="linkish" type="button" data-act="faucet/mint">Get 20 test ${SYM}</button>` : `<a href="${FAUCET.stable}" target="_blank" rel="noopener">${SYM} faucet</a>`} · <a href="${FAUCET.gas}" target="_blank" rel="noopener">ETH faucet</a>`
 
   /* One check block: the wallet's figures, then what is short, if anything. */
   function preflight(key, needs) {
@@ -1084,6 +1085,7 @@
       NET = s.chain.label || NET
       NETS = s.chain.short || NETS
       FAUCET = s.chain.faucets || FAUCET
+      MINTABLE = !!s.chain.mintable
       $$('[data-sym]').forEach((el) => { if (el.textContent !== SYM) el.textContent = SYM })
       $$('[data-net]').forEach((el) => { if (el.textContent !== NETS) el.textContent = NETS })
       $$('[data-net-full]').forEach((el) => { if (el.textContent !== NET) el.textContent = NET })
@@ -1349,6 +1351,13 @@
       await W.fund(l.id)
       await post('lender/funded', { loan: l.id })
       toast(`Funded. The ${SYM} waits in the contract until the guardians see the ZEC`)
+    },
+    'faucet/mint': async () => {
+      if (!me()) await connectWallet()
+      confirm(`Mint 20 test ${SYM} to your wallet`)
+      await W.mintTest(20_000_000)
+      refreshBalances(true)
+      toast(`20 test ${SYM} are in your wallet`)
     },
     'lender/cancel': async (btn) => {
       const l = loanById(last, btn.dataset.loan)

@@ -167,6 +167,9 @@ export async function fund(id) {
 /** After the lock deadline, with the collateral not all in: the contract refunds the desk. */
 export const cancel = (id) => loans('cancel', [id])
 
+/** Test dollars, where the chain's test stablecoin lets anyone mint (Robinhood testnet). */
+export const mintTest = (amount) => call(cfg.usdc, parseAbi(['function mint(address to, uint256 amount)']), 'mint', [account, BigInt(amount)])
+
 /* ------------------------------------------------------------ borrower -- */
 
 export const accept = (id, payoutTo) => loans('accept', [id, getAddress(payoutTo)])

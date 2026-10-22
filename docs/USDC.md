@@ -21,7 +21,7 @@ roles; the public endpoints are for testing, not production.
 
 | Item | Value | Source |
 |---|---|---|
-| Chain ID | 46630 | docs.robinhood.com, chain |
+| Chain ID | 46630 | usdc/deployments/robinhood-testnet.json (the chain our contracts are on) |
 | Explorer | https://explorer.testnet.chain.robinhood.com | |
 | Stablecoin | Test USDC (tUSDC) `0xdc821cdb076a1b2c5d1ada9a242f33b97d34f0a5`, 6 decimals, permit, anyone can mint | usdc/contracts/test/TestUSDC.sol |
 | Why not Paxos USDG | its test faucet is closed in the user's country | |

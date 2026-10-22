@@ -216,6 +216,15 @@ four labelled groups (order, pricing, risk, settlement) and a preview of what bo
 heading figures are now one card of cells as on Markets (they were separate pills), and an
 empty Portfolio is one quiet line with a normal button.
 
+**D28. The words: private credit, shielded end to end (22 Oct, user).** The site now sells
+both sides of the privacy, in the register leading protocols use (short declarative
+headlines, ownership in two beats, trust as things you can check): "Dollar credit against
+ZEC, shielded end to end"; "A public loan is a target" with a public-market loan next to a
+private Hypothec loan; "Shielded on Zcash. Shielded on the loan chain." The old postcard
+line was too close to another product's wording and is gone. The share text, title, docs
+overview, who-sees-what table, disclosures (test proving keys) and footer name both loan
+chains and the private dollar side.
+
 **D10. Desk, not pool (8 Oct; decided 14 Oct with D14).** The borrower app shows
 the desk like a pool card (available USDC, rate, term, start LTV, price, Borrow), but the
 money is one lender's. A depositor pool would need someone to hold the lender's key

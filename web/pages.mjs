@@ -61,11 +61,12 @@ const SEES = [
   ['Lending desk', 'The collateral in its own loan’s vault, through the viewing key; where the <span data-sym>USDC</span> is paid; the ZEC address the vault returns to', 'The borrower’s Zcash wallet, its balance or history, or the borrower’s loans with other desks'],
   ['Guardians', 'What the desk sees, and the signed terms they enforce', 'The borrower’s Zcash wallet'],
   ['Zcash, publicly', 'Shielded transactions', 'Owner, amount, or that a loan exists'],
-  ['<span data-net>Base</span>, publicly', 'Each loan contract: <span data-sym>USDC</span> amount, payout address, status', 'Any Zcash detail; the contract stores none'],
+  ['<span data-net>Base</span>, publicly', 'Each loan contract: <span data-sym>USDC</span> amount, terms, status; with Private off, the wallets and payout address', 'Any Zcash detail; with Private on, which wallet borrowed or lent, and where the dollars went'],
 ]
 
 const DISCLOSURES = [
-  ['Test build', 'Runs on Zcash testnet (or a local test chain) and <span data-net-full>Base Sepolia</span>, with test coins only. The testnet build uses pre-release Zcash libraries for NU7.'],
+  ['Test build', 'Runs on Zcash testnet (or a local test chain) with Base Sepolia or Robinhood Chain testnet, with test coins only. The testnet build uses pre-release Zcash libraries for NU7.'],
+  ['Private dollars', 'The shielded dollar vault uses test proving keys from a one-machine setup. A real deployment needs a multi-party ceremony and an audit.'],
   ['Guardians', 'Both guardians in this build are run by the Hypothec team. In production they are independent operators from a published list, approved by each borrower.'],
   ['Audit', 'Not audited. The threshold-signing library underneath is pre-release software.'],
   ['Availability', 'Release and liquidation need both guardians online. If one is unavailable, the borrower, the desk and the other guardian can close the loan together.'],
@@ -94,14 +95,21 @@ const keyDots = (pattern) => pattern.map((on, i) => `<i class="kd${on ? ' kd-on'
 const POSTCARD_PUBLIC = [
   ['Borrower', '0x9f3c…41aa'],
   ['Collateral', '12.40 ETH'],
-  ['Where it came from', 'Every past transfer'],
   ['Liquidates at', '$1,412 per ETH'],
+  ['Dollars sent to', '0x71be…09c2'],
 ]
 const POSTCARD_SEALED = [
+  ['Borrower', 'A one-time key'],
   ['Collateral', 'Shielded on Zcash'],
-  ['Amount locked', '••••••'],
-  ['Where it came from', 'Shielded'],
-  ['The dollar loan', 'Public, on <span data-net>Base</span>'],
+  ['Liquidates at', '••••••'],
+  ['Dollars sent to', 'Your private balance'],
+]
+
+/* Private on the loan chain too: the three things a private borrower or desk gets. */
+const PRIVATE3 = [
+  ['Borrow privately', 'A one-time key takes the loan and the dollars land in your private balance. Repay from it with a proof made in your browser.'],
+  ['Lend privately', 'Run a private desk. Fund loans from your private balance; repayments come back into it. Your wallet never touches the loan.'],
+  ['Nothing to back up', 'Every key comes from one signature of your wallet. Your notes are stored encrypted; sign in any browser and they are back.'],
 ]
 
 const TRUST = [
@@ -110,19 +118,19 @@ const TRUST = [
   ['Every decision on the record', 'Each guardian signs what it approved or refused, and why, with the price and the rule. Anyone can read the log.'],
 ]
 
-const pcRows = (rows, sealed) => rows.map(([k, v]) => `<div class="pc-row"><span>${k}</span><b${sealed && /•|Shielded/.test(v) ? ' class="sealed"' : ''}>${v}</b></div>`).join('')
+const pcRows = (rows, sealed) => rows.map(([k, v]) => `<div class="pc-row"><span>${k}</span><b${sealed && /•|Shielded|one-time|private/.test(v) ? ' class="sealed"' : ''}>${v}</b></div>`).join('')
 
 const index = () =>
   page({
-    title: 'Private loans against ZEC',
+    title: 'Private credit against shielded ZEC',
     body: `${header}
 <main class="land">
   <section class="shell hero4">
     <div class="hero-panel"><div class="hero-media" aria-hidden="true"><video class="hero-vid vault-vid vault-vid-light" src="assets/media/vault-light.mp4" poster="assets/media/vault-light.jpg" muted loop playsinline autoplay preload="auto"></video><video class="hero-vid vault-vid vault-vid-dark" src="assets/media/vault-dark.mp4" poster="assets/media/vault-dark.jpg" muted loop playsinline autoplay preload="auto"></video></div>
       <div class="hero-copy4">
         <a class="hero-tag" href="log.html"><span class="dot dot-on"></span>Guardians online <b data-live="guardians">—</b><span aria-hidden="true">→</span></a>
-        <h1 class="h-hero">Borrow dollars against <em>ZEC</em> that never leaves the shielded pool</h1>
-        <p class="lede">Your ZEC stays in Zcash’s shielded pool, in a vault made for one loan, and no single party can move it: not the lender, not Hypothec, not one guardian.</p>
+        <h1 class="h-hero">Dollar credit against <em>ZEC</em>, shielded end to end</h1>
+        <p class="lede">Your ZEC never leaves Zcash’s shielded pool, and no single party can move it. Turn on Private and the dollars are shielded too: no wallet of yours appears on the loan chain.</p>
         <div class="hero-cta">${btn('Open the app', { href: 'markets.html' })}<a class="btn-link" href="docs.html">Read the docs <span aria-hidden="true">→</span></a></div>
       </div>
       <a class="hero-scroll" href="#what">Scroll to explore <span aria-hidden="true">↓</span></a>
@@ -143,12 +151,17 @@ const index = () =>
   </section>
 
   <section class="shell postcard">
-    <h2 class="h-display">On a public chain, every loan is a postcard. Hypothec seals the envelope.</h2>
-    <p class="section-lede">A loan in a public market shows who borrowed, against what, where the coins came from, and the price that wipes them out. With Hypothec the dollar side stays public and the collateral does not.</p>
+    <h2 class="h-display">A public loan is a target.</h2>
+    <p class="section-lede">In a public lending market anyone can read who borrowed, what backs the loan, the price that liquidates it and where the dollars went. A Hypothec loan shows none of it.</p>
     <div class="pc">
-      <div class="pc-card"><span class="label-caps">What a crypto loan normally shows</span>${pcRows(POSTCARD_PUBLIC, false)}</div>
-      <div class="pc-card pc-sealed"><span class="label-caps">What a Hypothec loan shows</span>${pcRows(POSTCARD_SEALED, true)}</div>
+      <div class="pc-card"><span class="label-caps">A public lending market shows</span>${pcRows(POSTCARD_PUBLIC, false)}</div>
+      <div class="pc-card pc-sealed"><span class="label-caps">A private Hypothec loan shows</span>${pcRows(POSTCARD_SEALED, true)}</div>
     </div>
+  </section>
+
+  <section class="shell trust">
+    <h2 class="h-display">Shielded on Zcash.<br/>Shielded on the loan chain.</h2>
+    <div class="trust-cols">${PRIVATE3.map(([t, b]) => `<div><h3>${t}</h3><p>${b}</p></div>`).join('')}</div>
   </section>
 
   <section class="shell">
@@ -190,12 +203,12 @@ const index = () =>
 </main>
 <footer class="foot4"><div class="foot4-media" aria-hidden="true"><video class="pool-vid" data-src="assets/media/pool.mp4" poster="assets/media/pool.jpg" muted loop playsinline preload="none"></video></div><div class="shell">
   <div class="foot4-top">
-    <div class="foot4-brand"><a class="brand" href="index.html"><span class="mark">${MARK}</span><span>Hypothec</span></a><p>Private dollar loans against shielded ZEC.</p></div>
+    <div class="foot4-brand"><a class="brand" href="index.html"><span class="mark">${MARK}</span><span>Hypothec</span></a><p>Private credit against shielded ZEC.</p></div>
     <nav aria-label="Product"><b>Product</b><a href="markets.html">Markets</a><a href="loan.html">Portfolio</a><a href="log.html">Guardians</a></nav>
-    <nav aria-label="Learn"><b>Learn</b><a href="docs.html#how">How a loan runs</a><a href="docs.html#visibility">Who sees what</a><a href="docs.html#operators">Run a guardian</a><a href="docs.html#limits">Status and limits</a></nav>
+    <nav aria-label="Learn"><b>Learn</b><a href="docs.html#how">How a loan runs</a><a href="docs.html#private">Private dollars</a><a href="docs.html#visibility">Who sees what</a><a href="docs.html#operators">Run a guardian</a><a href="docs.html#limits">Status and limits</a></nav>
     <nav aria-label="Source"><b>Source</b><a href="https://github.com/tomcode1000/hypothec" target="_blank" rel="noopener">GitHub</a><a href="https://github.com/tomcode1000/hypothec/blob/main/docs/DESIGN.md" target="_blank" rel="noopener">Design</a><a href="https://github.com/tomcode1000/hypothec/blob/main/docs/DECISIONS.md" target="_blank" rel="noopener">Decisions</a></nav>
   </div>
-  <p class="foot4-note">Test build for the ZECATHON, on Zcash testnet and <span data-net-full>Base Sepolia</span>. Nothing here holds real money. Not audited. Not investment advice.</p>
+  <p class="foot4-note">Test build for the ZECATHON, on Zcash testnet with Base Sepolia and Robinhood Chain testnet. Nothing here holds real money. Not audited. Not investment advice.</p>
 </div></footer>`,
   })
 
@@ -209,7 +222,7 @@ const marketsPage = () =>
     main: `<header class="heading heading-mk">
     <div class="mk-intro">
       <h1 class="h1">Markets</h1>
-      <p class="heading-sub">Borrow <span data-sym>USDC</span> against ZEC that stays shielded. One desk or several, in one borrow.</p>
+      <p class="heading-sub">Borrow <span data-sym>USDC</span> against shielded ZEC from one desk or several. Lend on your own terms. Private on both sides.</p>
       <div class="mk-stats">
         <span><em>On offer</em><b data-app="m-available">—</b></span>
         <span><em>Desks</em><b data-app="m-desks">—</b></span>
@@ -288,7 +301,7 @@ const lockScreen = () => `<div class="lock4" data-app="lock4">
       <div class="li4">${lockIcon('shield')}<div><b>Your ZEC stays in the shielded pool</b><p>The vault holds your ZEC in Zcash’s shielded pool. It never leaves, and is never given to anyone.</p></div></div>
       <div class="li4">${lockIcon('key')}<div><b>Needs 3 of 4 keys</b><p>The vault’s key is split four ways (you, the lending desk, two guardians). Any three must sign to move it.</p></div></div>
       <div class="li4">${lockIcon('clock')}<div><b data-app="lock-i3-t">Wait for 10 confirmations</b><p data-app="lock-i3-p">Once your payment is seen, the guardians wait for 10 confirmations on the Zcash network.</p></div></div>
-      <div class="li4">${lockIcon('bolt')}<div><b data-app="lock-i4-t">Then your dollars are paid</b><p data-app="lock-i4-p">Both guardians confirm the lock on <span data-net>Base</span>, and the loan contract pays the dollars to your wallet.</p></div></div>
+      <div class="li4">${lockIcon('bolt')}<div><b data-app="lock-i4-t">Then your dollars are paid</b><p data-app="lock-i4-p">Both guardians confirm the lock on <span data-net>Base</span>, and the loan contract pays the dollars to your wallet, or into your private balance with Private on.</p></div></div>
     </div>
     <div class="lock4-art" aria-hidden="true"><video class="vault-vid vault-vid-light" src="assets/media/vault-light.mp4" poster="assets/media/vault-light.jpg" muted loop playsinline autoplay preload="metadata"></video><video class="vault-vid vault-vid-dark" src="assets/media/vault-dark.mp4" poster="assets/media/vault-dark.jpg" muted loop playsinline autoplay preload="metadata"></video></div>
   </div>
@@ -489,7 +502,7 @@ const OPERATOR_STEPS = [
 ]
 
 const DOCS = [
-  ['overview', 'Overview', `<p>Hypothec lends <span data-sym>USDC</span> on <span data-net>Base</span> against ZEC that stays shielded on Zcash. Each loan's collateral sits in its own vault: one threshold key with four holders (the borrower, the lending desk and two guardians), any three of whom can sign. No single party, and no two of them, can move it alone.</p>
+  ['overview', 'Overview', `<p>Hypothec lends <span data-sym>USDC</span> on <span data-net>Base</span> against ZEC that stays shielded on Zcash. Each loan's collateral sits in its own vault: one threshold key with four holders (the borrower, the lending desk and two guardians), any three of whom can sign. No single party, and no two of them, can move it alone. With Private on, the dollar side is shielded too: borrowers and desks act through one-time keys, and the dollars move as private notes.</p>
     <dl class="facts">${STRUCTURE.map(([k, d]) => `<div><dt>${k}</dt><dd>${d}</dd></div>`).join('')}</dl>`],
   ['how', 'How a loan runs', `<ol class="steps">${STEPS.map(([t, b], i) => `<li><span class="steps-n">${String(i + 1).padStart(2, '0')}</span><h3>${t}</h3><p>${b}</p></li>`).join('')}</ol>`],
   ['orders', 'Orders and split borrows', `<p>Any wallet can open a desk and post an order: its rate, term, loan-to-value levels and how much it lends in all. Markets lists every order.</p>

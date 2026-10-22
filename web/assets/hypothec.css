@@ -6678,3 +6678,11 @@ body::after {
     text-align: center;
   }
 }
+
+/* Phones: the landing header keeps the theme and "Open the app"; the chain switch is in the app. */
+@media (max-width: 560px) {
+  .site-end .chainsw,
+  .site-end .btn-ghost {
+    display: none;
+  }
+}

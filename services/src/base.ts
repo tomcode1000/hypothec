@@ -118,7 +118,8 @@ export async function vaultRecord() {
   if (!VAULT) return null;
   vaultReading ??= (async () => {
     const head = await retry(() => pub.getBlockNumber());
-    let from = vaultSeen.to ? vaultSeen.to + 1n : VAULT_BLOCK;
+    // Re-read the last few blocks each time: a node can report a head before its logs are indexed.
+    let from = vaultSeen.to > VAULT_BLOCK + 8n ? vaultSeen.to - 8n : VAULT_BLOCK;
     while (from <= head) {
       const to = from + 4_999n < head ? from + 4_999n : head;
       const [commits, nulls] = await Promise.all([

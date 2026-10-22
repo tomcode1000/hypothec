@@ -1497,8 +1497,10 @@
       const amount = BigInt(Math.round(Number($('[data-input="priv-add"]').value || 0) * 1e6))
       if (amount <= 0n) throw new Error('Type an amount to add')
       confirm(`Approve, then add ${usdc(amount)} to your private balance`)
+      const before = sum((await privateBalance(last, true)).map((n) => n.amount))
       await W.shieldIn(amount)
-      await privateBalance(last, true)
+      // Wait for the vault's record to show the new note before painting the balance.
+      for (let i = 0; i < 15 && sum((await privateBalance(last, true)).map((n) => n.amount)) < before + amount; i++) await new Promise((r) => setTimeout(r, 2000))
       await paintPrivate(last)
       toast(`${usdc(amount)} is now private`)
     },

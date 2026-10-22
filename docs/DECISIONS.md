@@ -200,6 +200,11 @@ desk's ZEC share goes to the shielded address in its terms. Public: the loan's a
 terms; private: which wallet lent and where the repayment went. Tested: 3 more contract
 tests with real proofs (private on both sides; a private desk's signed cancel refunding into
 its note; only the vault funds a private desk's loan) and test/e2e-private-lend.mjs.
+Notes the seed cannot find again on its own (deposits and change) were kept only in the
+browser, so clearing it lost them. Now each is also stored on the site encrypted (AES-GCM),
+under a tag; the key and the tag both come from the wallet's signature, so the site holds
+only ciphertext, and signing again in any browser restores every note (tested: a deposit
+made in one browser profile shows in a fresh one).
 
 **D27. Borrow as an order ticket (22 Oct, user).** The Borrow dialog had grown into one
 long column (about 900 px). It is now two columns: the order (amount, which desks fill it,

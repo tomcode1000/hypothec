@@ -20,7 +20,7 @@ enum Status { None, Offered, Accepted, Funded, Active, Repaid, Liquidated, Cance
 async function setup() {
   const [lender, borrower, refA, refB, payout, repayTo, stranger] = await hre.viem.getWalletClients();
   const usdc = await hre.viem.deployContract("TestUSDC");
-  const loans = await hre.viem.deployContract("HypothecLoans", [usdc.address]);
+  const loans = await hre.viem.deployContract("HypothecLoans", [usdc.address, "0x0000000000000000000000000000000000000000"]);
   await usdc.write.mint([lender.account.address, USDC(20)]);
   await usdc.write.mint([borrower.account.address, USDC(20)]);
   // The contracts as seen by one wallet (each a promise: `await (await s.as(w).loans)`).

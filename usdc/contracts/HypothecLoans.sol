@@ -6,6 +6,13 @@ interface IERC20 {
     function transfer(address to, uint256 amount) external returns (bool);
     function transferFrom(address from, address to, uint256 amount) external returns (bool);
     function allowance(address owner, address spender) external view returns (uint256);
+    function approve(address spender, uint256 amount) external returns (bool);
+}
+
+/// The shielded dollar vault (contracts/vault/HypothecVault.sol): a shielded loan pays out
+/// into it as a private note.
+interface IShieldVault {
+    function deposit(uint256 amount, uint256 owner, uint256 blinding) external returns (uint256);
 }
 
 /// EIP-2612, which Circle's USDC implements: an approval given by signature, no transaction.
@@ -29,6 +36,11 @@ interface IERC20Permit {
 ///   or confirmLiquidation (both referees, after the ZEC liquidation) => Liquidated
 ///   cancel: before funding (lender or borrower), or by the lender once a funded loan's lock
 ///   deadline passes unconfirmed (the principal goes back to the lender).
+///
+/// Shielded loans (acceptShielded): the borrower is a one-time key that signs its acceptance
+/// (anyone, a relayer, may submit it, so the key needs no gas and the borrower's wallet never
+/// appears), and the principal is paid into the shielded vault as a private note. Repaying
+/// can come from inside the vault (anyone may repay), so nothing links the loan to a person.
 contract HypothecLoans {
     enum Status {
         None,
@@ -79,6 +91,10 @@ contract HypothecLoans {
     }
 
     IERC20 public immutable usdc;
+    /// The shielded dollar vault on this chain (zero where there is none).
+    address public immutable vault;
+    /// A shielded loan's payout note: its owner and blinding (the amount is the principal).
+    mapping(bytes32 => uint256[2]) private payoutNote;
 
     /// What each guardian earns per loan: 0.10% of the principal, paid by the lender with
     /// the funding and handed over when both guardians confirm the lock. The same whether
@@ -103,8 +119,9 @@ contract HypothecLoans {
     error BadTerms();
     error TransferFailed();
 
-    constructor(IERC20 usdc_) {
+    constructor(IERC20 usdc_, address vault_) {
         usdc = usdc_;
+        vault = vault_;
     }
 
     function offer(bytes32 id, Terms calldata t) external {
@@ -145,6 +162,27 @@ contract HypothecLoans {
         emit Accepted(id, payoutTo);
     }
 
+    /// What a one-time borrower key signs (EIP-191) to accept a shielded loan.
+    function shieldedAcceptDigest(bytes32 id, uint256 noteOwner, uint256 noteBlinding, uint256 deadline) public view returns (bytes32) {
+        return keccak256(abi.encode("Hypothec shielded accept", block.chainid, address(this), id, noteOwner, noteBlinding, deadline));
+    }
+
+    /// The borrower (a one-time key) agrees to the terms by signature, and the principal will
+    /// be paid into the vault as the note (principal, noteOwner, noteBlinding). Anyone may
+    /// submit this, so the key needs no gas.
+    function acceptShielded(bytes32 id, uint256 noteOwner, uint256 noteBlinding, uint256 deadline, uint8 v, bytes32 r, bytes32 s) external {
+        Loan storage l = loans[id];
+        if (l.status != Status.Offered) revert WrongStatus(l.status);
+        if (vault == address(0) || block.timestamp > deadline || noteOwner == 0) revert BadTerms();
+        bytes32 digest = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", shieldedAcceptDigest(id, noteOwner, noteBlinding, deadline)));
+        address signer = ecrecover(digest, v, r, s);
+        if (signer == address(0) || signer != l.borrower) revert NotAllowed();
+        l.payoutTo = vault;
+        payoutNote[id] = [noteOwner, noteBlinding];
+        l.status = Status.Accepted;
+        emit Accepted(id, vault);
+    }
+
     /// One guardian's fee on a principal.
     function guardianFee(uint256 principal) public pure returns (uint256) {
         return (principal * GUARDIAN_FEE_BPS) / 10_000;
@@ -178,7 +216,13 @@ contract HypothecLoans {
         if (l.lockA && l.lockB) {
             l.status = Status.Active;
             uint256 fee = guardianFee(l.principal);
-            _send(l.payoutTo, l.principal);
+            if (l.payoutTo == vault && vault != address(0)) {
+                // Shielded: the principal becomes the borrower's private note in the vault.
+                if (!usdc.approve(vault, l.principal)) revert TransferFailed();
+                IShieldVault(vault).deposit(l.principal, payoutNote[id][0], payoutNote[id][1]);
+            } else {
+                _send(l.payoutTo, l.principal);
+            }
             _send(l.refereeA, fee);
             _send(l.refereeB, fee);
             emit Active(id, l.payoutTo, l.principal);

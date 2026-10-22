@@ -1,0 +1,7 @@
+tools/
+node_modules/
+build.log
+build/*
+!build/spend.wasm
+!build/spend.zkey
+!build/verification_key.json

@@ -19,6 +19,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Shielded vault tools (circuit keys are committed in shield/build)
+        working-directory: shield
+        run: npm ci
       - name: Contract tests
         working-directory: usdc
         run: npm ci && npx hardhat test

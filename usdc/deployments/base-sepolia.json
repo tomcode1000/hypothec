@@ -1,11 +1,21 @@
 {
-  "network": "base-sepolia",
+  "network": "Base Sepolia",
   "chainId": 84532,
   "usdc": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
-  "HypothecLoans": "0x9a31d3bf02ea2e8778cb0c4435d22b298028cde9",
-  "deployTx": "0x7c3f9d12fcefd7cec206293a3c7923187cf7b2302636f07446805864baf47ec5",
-  "deployedAt": "2026-10-19T14:47:11.292Z",
+  "stable": "USDC",
+  "HypothecLoans": "0x1bff8ca708a08259e6495dea2afef37eeaae19f3",
+  "deployTx": "0xef1b4906b1bb127f5f9d5d6e4d01529f3d1c343248140f92c3d801668f88d8d6",
+  "HypothecVault": "0x783fb2a487a21fa09e1feaee1284b603462ff307",
+  "vaultBlock": 48778588,
+  "SpendVerifier": "0x5ad62650ad69ef48fc60244c1779dc12ca359644",
+  "Poseidon2": "0x17d144537e6d3d97d8c915c90a3350d0ec1ed399",
+  "Poseidon3": "0xf04b34a3913fd67656b729205ce0355ac1f55ef3",
+  "deployedAt": "2026-10-22T14:00:46.447Z",
   "previous": [
+    {
+      "HypothecLoans": "0x9a31d3bf02ea2e8778cb0c4435d22b298028cde9",
+      "deployTx": "0x7c3f9d12fcefd7cec206293a3c7923187cf7b2302636f07446805864baf47ec5"
+    },
     {
       "HypothecLoans": "0x63dd4a31a6b559f3a893f0c474a145b6fdff817a",
       "deployTx": "0x63a0769333a614db3a76bb55cc8577c799986f3e87124baeef1b890644250972"

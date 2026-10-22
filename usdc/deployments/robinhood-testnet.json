@@ -1,11 +1,21 @@
 {
   "network": "Robinhood Chain testnet",
   "chainId": 46630,
-  "stable": "tUSDC",
   "usdc": "0xdc821cdb076a1b2c5d1ada9a242f33b97d34f0a5",
-  "tokenTx": "0x88002211c8fead8b7d1ee6daef6a527e1605fcddf4ab0238634249233928c3d6",
-  "HypothecLoans": "0x1f783221907a1f8845f0b6a3f823ca56ed8556ea",
-  "deployTx": "0x12707d656c9054307caa18bfefea69b71dcadbfa945191c29e5a2937daadd7da",
-  "deployedAt": "2026-10-21T14:36:59.109Z",
-  "previous": []
+  "stable": "tUSDC",
+  "HypothecLoans": "0x43b661d58233ee0688c225c0bdae18ba32a4f6f6",
+  "deployTx": "0x170e91bd65c665248cd43b6452522397654df1c93943b56dd4424641b2ea04a8",
+  "HypothecVault": "0x6c4a5afa0a0e530cface627429bddf9c8f454383",
+  "vaultBlock": 140780261,
+  "SpendVerifier": "0x13c40a30683e1224f4fabc0ac343ff4eecd7cfcf",
+  "Poseidon2": "0x9fb48f6f1adb560c6b6f5eccdd8bee99f71e2151",
+  "Poseidon3": "0x7dc7ae549609dc117978917b98576c8f43f2b121",
+  "deployedAt": "2026-10-22T14:00:19.821Z",
+  "previous": [
+    {
+      "HypothecLoans": "0x1f783221907a1f8845f0b6a3f823ca56ed8556ea",
+      "deployTx": "0x12707d656c9054307caa18bfefea69b71dcadbfa945191c29e5a2937daadd7da"
+    }
+  ],
+  "tokenTx": "0x88002211c8fead8b7d1ee6daef6a527e1605fcddf4ab0238634249233928c3d6"
 }

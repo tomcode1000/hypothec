@@ -49,7 +49,7 @@ async function setup() {
   });
   // The vault's tree, read from its events, as the browser does.
   const tree = async () => {
-    const logs = await vault.getEvents.NewCommitment({}, { fromBlock: 0n });
+    const logs = await vault.getEvents.NewCommitment({ fromBlock: 0n });
     return new notes.Tree(logs.sort((a, b) => Number(a.args.index! - b.args.index!)).map((l) => l.args.commitment!));
   };
   // Proves a spend and sends it through the relayer.

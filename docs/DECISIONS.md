@@ -210,7 +210,11 @@ made in one browser profile shows in a fresh one).
 long column (about 900 px). It is now two columns: the order (amount, which desks fill it,
 Private) and a term sheet (what you lock, what you repay, rate, due, chain, the wallet check
 and the button), one screen tall on a laptop and stacked on a phone. A private borrow needs
-no ETH, so its wallet check asks only for the interest.
+no ETH, so its wallet check asks only for the interest. Lend got the same ticket: the order in
+four labelled groups (order, pricing, risk, settlement) and a preview of what borrowers see
+(rate, the LTV ladder, guardian fees, collateral per 100 lent, interest at term). Every page's
+heading figures are now one card of cells as on Markets (they were separate pills), and an
+empty Portfolio is one quiet line with a normal button.
 
 **D10. Desk, not pool (8 Oct; decided 14 Oct with D14).** The borrower app shows
 the desk like a pool card (available USDC, rate, term, start LTV, price, Borrow), but the

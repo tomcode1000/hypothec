@@ -760,6 +760,7 @@
   })
   document.addEventListener('input', (e) => {
     if (e.target.matches('[data-input="amount"], [data-input="mk-zec"]') && last) paintMarkets(last)
+    if (e.target.closest('[data-app="lend-dialog"] [data-desk]')) paintLendPreview()
   })
 
   /* Dialogs close from their X, from a click on the dimmed backdrop, and from the browser's
@@ -823,6 +824,7 @@
       lendFrom = from
       lendTitle()
       openDialog('[data-app="lend-dialog"]')
+      paintLendPreview()
     }
   })
 
@@ -1112,6 +1114,31 @@
     const b = $('[data-desk="guardian-b"]')
     if (a && b && a.value === b.value && b.options.length > 1) b.selectedIndex = a.selectedIndex === 0 ? 1 : 0
     put('zec', t.lenderZec || '')
+    paintLendPreview()
+  }
+
+  /* The Lend ticket's right side: the order as borrowers will see it. */
+  function paintLendPreview() {
+    if (!$('[data-app="lend-dialog"]')?.open) return
+    const num = (k) => Number($(`[data-desk="${k}"]`)?.value || 0)
+    const apr = num('apr')
+    const unit = Number($('[data-desk="term-unit"]')?.value || 86400)
+    const secs = num('term') * unit
+    const [start, margin, liq] = [num('start'), num('margin'), num('liq')]
+    const max = num('max')
+    set('lp-rate', `${trim(apr.toFixed(2))}% APR`)
+    set('lp-term', secs ? `${term(secs)} term` : DASH)
+    set('lp-start', `${start}%`)
+    set('lp-margin', `${margin}%`)
+    set('lp-liq', `${liq}%`)
+    const pctW = (x) => `${Math.max(0, Math.min(100, x))}%`
+    $$('[data-app="lp-bar-safe"]').forEach((el) => (el.style.width = pctW(margin)))
+    $$('[data-app="lp-bar-warn"]').forEach((el) => (el.style.width = pctW(liq - margin)))
+    set('lp-max', max ? `${trim(max.toFixed(2))} ${SYM}` : DASH)
+    set('lp-fee', max ? `${trim((max * 0.002).toFixed(4))} ${SYM}` : DASH)
+    const price = last?.sizingPriceUsd
+    set('lp-collateral', price && start ? `${trim((100 / ((start / 100) * price)).toFixed(4))} ZEC` : DASH)
+    set('lp-earn', max && secs ? `${trim((max * (apr / 100) * (secs / (365 * 86400))).toFixed(4))} ${SYM}` : DASH)
   }
 
   function paintDesk(s, focus) {
@@ -1427,6 +1454,11 @@
     $$('[data-app="priv-open"]').forEach((el) => (el.hidden = open))
     $$('[data-app="priv-actions"]').forEach((el) => (el.hidden = !open))
     if (!open) return set('priv-balance', 'Locked')
+    // The one-time keys come from the signature, so any browser finds its private desks and borrows.
+    if (W.oneTimeAddresses && !privAddrs().length) {
+      const known = new Set([...s.desks.map((d) => d.owner), ...s.baskets.map((b) => b.borrower), ...s.loans.map((l) => l.offer.borrower)].map((a) => a.toLowerCase()))
+      for (const a of await W.oneTimeAddresses()) if (known.has(a.toLowerCase())) addPrivAddr(a)
+    }
     try {
       const notes = await privateBalance(s)
       set('priv-balance', usdc(sum(notes.map((n) => n.amount))))

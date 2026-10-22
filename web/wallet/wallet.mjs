@@ -269,6 +269,12 @@ export async function nextOneTime(used) {
   throw new Error('No free one-time key')
 }
 
+/** The first `n` one-time addresses of this seed: how another browser finds its private desks and borrows. */
+export async function oneTimeAddresses(n = 24) {
+  const s = await privateSeed()
+  return Array.from({ length: n }, (_, k) => oneTimeAccount(s, k).address)
+}
+
 /** This seed's one-time key for an address it made (searching its first keys). */
 async function oneTimeFor(address) {
   const s = await privateSeed()

@@ -281,33 +281,67 @@ const borrowDialog = () => `<dialog class="dialog dialog-ticket" data-app="borro
  * Lend: post an order, or update yours. Opened from a market row it starts from that
  * desk's terms. Desks lend their own money; there is no shared pool (D10).
  */
-const lendDialog = () => `<dialog class="dialog dialog-wide" data-app="lend-dialog" aria-labelledby="lend-title"><div class="bezel">
-  ${dialogHead('lend-title', '<span data-app="lend-title">Post an order</span>')}
-  <div class="pad">
-    <div class="desk-form">
-      <label class="field"><span>Desk name</span><input data-desk="name" type="text" maxlength="32" placeholder="shown to borrowers"/></label>
-      <label class="field"><span>Lend up to</span><div class="amount"><input data-desk="max" type="number" min="0.1" step="0.1"/><b data-sym>USDC</b></div></label>
-      <label class="field"><span>Rate</span><div class="amount"><input data-desk="apr" type="number" min="0" max="100" step="0.1"/><b>% APR</b></div></label>
-      <label class="field"><span>Term</span><div class="amount"><input data-desk="term" type="number" min="1" step="1"/><select data-desk="term-unit"><option value="86400">days</option><option value="60">minutes</option></select></div></label>
-      <label class="field"><span>Start LTV</span><div class="amount"><input data-desk="start" type="number" min="10" max="90" step="1"/><b>%</b></div></label>
-      <label class="field"><span>Margin call LTV</span><div class="amount"><input data-desk="margin" type="number" min="10" max="94" step="1"/><b>%</b></div></label>
-      <label class="field"><span>Liquidation LTV</span><div class="amount"><input data-desk="liq" type="number" min="10" max="94" step="1"/><b>%</b></div></label>
-      <label class="field"><span>Price buffer</span><div class="amount"><input data-desk="slippage" type="number" min="0" max="10" step="0.5"/><b>%</b></div></label>
+const lendDialog = () => `<dialog class="dialog dialog-ticket" data-app="lend-dialog" aria-labelledby="lend-title"><div class="bezel">
+  <div class="tk-head">
+    <div><span class="label-caps">Lend · <span data-net>Base</span></span><h2 class="h2" id="lend-title"><span data-app="lend-title">Post an order</span></h2></div>
+    <button class="x" type="button" data-close aria-label="Close">${ic('x')}</button>
+  </div>
+  <div class="tk-body">
+    <div class="tk-main">
+      <fieldset class="tk-group">
+        <legend class="label-caps">Order</legend>
+        <div class="tk-row2">
+          <label class="field"><span>Desk name</span><input data-desk="name" type="text" maxlength="32" placeholder="shown to borrowers"/></label>
+          <label class="field"><span>Lend up to</span><div class="amount"><input data-desk="max" type="number" min="0.1" step="0.1"/><b data-sym>USDC</b></div></label>
+        </div>
+      </fieldset>
+      <fieldset class="tk-group">
+        <legend class="label-caps">Pricing</legend>
+        <div class="tk-row2">
+          <label class="field"><span>Rate</span><div class="amount"><input data-desk="apr" type="number" min="0" max="100" step="0.1"/><b>% APR</b></div></label>
+          <label class="field"><span>Term</span><div class="amount"><input data-desk="term" type="number" min="1" step="1"/><select data-desk="term-unit"><option value="86400">days</option><option value="60">minutes</option></select></div></label>
+        </div>
+      </fieldset>
+      <fieldset class="tk-group">
+        <legend class="label-caps">Risk</legend>
+        <div class="tk-row4">
+          <label class="field"><span>Start LTV</span><div class="amount"><input data-desk="start" type="number" min="10" max="90" step="1"/><b>%</b></div></label>
+          <label class="field"><span>Margin call</span><div class="amount"><input data-desk="margin" type="number" min="10" max="94" step="1"/><b>%</b></div></label>
+          <label class="field"><span>Liquidation</span><div class="amount"><input data-desk="liq" type="number" min="10" max="94" step="1"/><b>%</b></div></label>
+          <label class="field"><span>Price buffer</span><div class="amount"><input data-desk="slippage" type="number" min="0" max="10" step="0.5"/><b>%</b></div></label>
+        </div>
+      </fieldset>
+      <fieldset class="tk-group">
+        <legend class="label-caps">Settlement</legend>
+        <label class="field"><span>ZEC address for liquidation shares <button class="linkish" type="button" data-fill="test-desk">Use the test desk's</button></span><input data-desk="zec" type="text" spellcheck="false" placeholder="a shielded address from your Zcash wallet"/></label>
+        <div class="tk-row2">
+          <label class="field"><span>Guardian A</span><select data-desk="guardian-a"></select></label>
+          <label class="field"><span>Guardian B</span><select data-desk="guardian-b"></select></label>
+        </div>
+      </fieldset>
     </div>
-    <label class="field"><span>ZEC address for liquidation shares</span><input data-desk="zec" type="text" spellcheck="false" placeholder="a shielded address from your Zcash wallet"/></label>
-    <p class="fine">Your wallet signs these terms; every offer carries them. <button class="linkish" type="button" data-fill="test-desk">Use the test desk's address</button></p>
-    <div class="desk-form desk-guardians">
-      <label class="field"><span>Guardian A</span><select data-desk="guardian-a"></select></label>
-      <label class="field"><span>Guardian B</span><select data-desk="guardian-b"></select></label>
-    </div>
-    <p class="fine">Two independent operators from the operator list, online now. Each earns <b data-app="guardian-fee">0.10%</b> of a loan's principal, paid from your funding when it confirms the lock, the same whether the loan is repaid or liquidated.</p>
-    <label class="privsw privsw-row" data-app="priv-wrap" hidden>
-      <input type="checkbox" data-input="private-desk" checked/>
-      <span class="privsw-text"><b>Private desk</b><em>A one-time key runs the desk and funds from your private balance; what borrowers repay comes back into it. Your wallet never appears on <span data-net>Base</span>.</em></span>
-      <span class="privsw-knob" aria-hidden="true"></span>
-    </label>
-    <div class="preflight" data-app="preflight-lend"></div>
-    ${btn('Sign and post', { act: 'lender/desk', wide: true, key: 'desk-publish' })}
+    <aside class="tk-sheet">
+      <span class="label-caps">What borrowers see</span>
+      <div class="tk-lock"><span>Your rate</span><b data-app="lp-rate">—</b><em data-app="lp-term">—</em></div>
+      <div class="ladder" aria-label="Loan-to-value levels">
+        <div class="ladder-bar"><i class="ladder-safe" data-app="lp-bar-safe"></i><i class="ladder-warn" data-app="lp-bar-warn"></i><i class="ladder-bad"></i></div>
+        <div class="ladder-keys"><span>Start <b data-app="lp-start">—</b></span><span>Margin call <b data-app="lp-margin">—</b></span><span>Liquidation <b data-app="lp-liq">—</b></span></div>
+      </div>
+      <dl class="tk-terms">
+        <div><dt>Order size</dt><dd data-app="lp-max">—</dd></div>
+        <div><dt>Guardian fees</dt><dd data-app="lp-fee">—</dd></div>
+        <div><dt>Per 100 lent</dt><dd data-app="lp-collateral">—</dd></div>
+        <div><dt>Earns at term</dt><dd data-app="lp-earn">—</dd></div>
+      </dl>
+      <p class="tk-fine">Each guardian earns <b data-app="guardian-fee">0.10%</b> of a loan's principal from your funding when it confirms the lock, the same whether the loan is repaid or liquidated.</p>
+      <label class="privsw privsw-row" data-app="priv-wrap" hidden>
+        <input type="checkbox" data-input="private-desk" checked/>
+        <span class="privsw-text"><b>Private desk</b><em>A one-time key runs it and funds from your private balance; your wallet never appears on <span data-net>Base</span>.</em></span>
+        <span class="privsw-knob" aria-hidden="true"></span>
+      </label>
+      <div class="preflight" data-app="preflight-lend"></div>
+      ${btn('Sign and post', { act: 'lender/desk', wide: true, key: 'desk-publish' })}
+    </aside>
   </div>
 </div></dialog>`
 

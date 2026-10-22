@@ -296,9 +296,10 @@ const lockScreen = () => `<div class="lock4" data-app="lock4">
 </div>`
 
 const borrowerSteps = () => [
-  step('none', `${cardHead('No loans yet')}
-    <div class="pad"><p class="muted">Borrow from a desk on Markets; your loans show up here.</p>
-    ${btn('Go to Markets', { href: 'markets.html', wide: true })}</div>`),
+  step('none', `<div class="empty4">
+    <div><span class="label-caps">Borrowing</span><b>No loans yet</b><p>Pick a desk on Markets, lock ZEC in a shielded vault and receive <span data-sym>USDC</span>. Your loans, vaults and repayments appear here.</p></div>
+    ${btn('Go to Markets', { href: 'markets.html' })}
+  </div>`),
   step('wait-offer', `${cardHead('Waiting for the desks')}
     <div class="pad">${pieceTable('wait-rows', ['Desk', 'You receive', 'You will lock', 'Status'])}
       <div class="sheet">${line('ZEC to lock in all', 'b-lock-quote')}</div>
@@ -498,6 +499,15 @@ const DOCS = [
       <thead><tr><th scope="col">Party</th><th scope="col">Sees</th><th scope="col">Never sees</th></tr></thead>
       <tbody>${SEES.map(([w, y, n]) => `<tr><th scope="row">${w}</th><td>${y}</td><td>${n}</td></tr>`).join('')}</tbody>
     </table></div>`],
+  ['private', 'Private dollars', `<p>On Zcash the collateral is always shielded. With <b>Private</b> on, the dollar side on <span data-net>Base</span> is shielded too, for borrowers and for desks.</p>
+    <dl class="facts">
+      <div><dt>One-time keys</dt><dd>A private borrower or desk acts through a fresh key made from one signature of your wallet. It only signs; a relayer sends its transactions and pays the gas, so your wallet never appears.</dd></div>
+      <div><dt>Private balance</dt><dd>Dollars sit in a shielded vault as private notes, Zcash's design: a commitment in a Merkle tree, spent with a zero-knowledge proof made in your browser, which reveals neither the note nor its owner.</dd></div>
+      <div><dt>Borrowing</dt><dd>The loan pays into your private balance; repaying spends from it straight into the loan.</dd></div>
+      <div><dt>Lending</dt><dd>A private desk funds from its private balance; what the borrower repays comes back into it as the desk's note when the loan ends.</dd></div>
+      <div><dt>Still public</dt><dd>The loan's amount and terms, and money entering or leaving the vault. Not who borrowed, who lent or where the dollars went.</dd></div>
+      <div><dt>Backups</dt><dd>Your notes are stored on the site encrypted with a key only your wallet's signature makes; sign in any browser and they come back.</dd></div>
+    </dl>`],
   ['guardians', 'Guardians', `<p>A guardian is an operator from the Hypothec list running the published rules engine. It confirms a lock only when it sees the full amount in the vault; it releases only after the contract says repaid (or cancelled, when a lock never completed), and only to the borrower's signed address; it liquidates only past the published line, or after the due date, with the surplus to the borrower in the same transaction. It signs every decision, and the reason, into the log.</p>`],
   ['operators', 'Run a guardian', `<p>A guardian is a program, not a person. An operator runs it on their own server; from then on it watches every loan that names it and signs or refuses by the published rules, with nobody approving anything by hand. Two operators can guard every loan on Hypothec.</p>
     <p>The operator sets up one <span data-net>Base</span> key, once: it is the guardian's identity on the operator list and the address its fees are paid to. Each loan's vault needs a fresh key share, and the guardian's key-share service makes it automatically when the loan starts and keeps it on the operator's server; it never leaves.</p>

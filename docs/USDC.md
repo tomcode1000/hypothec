@@ -1,4 +1,4 @@
-# USDC side: verified facts (8 Oct 2026)
+# The dollar side: verified facts (8 Oct 2026; Robinhood Chain added 21 Oct)
 
 | Item | Value | Source |
 |---|---|---|
@@ -16,3 +16,15 @@ real test USDC. Decision needed: small real amounts, or a mock token for big num
 
 Base notes that its transaction submission endpoint and its RPC endpoint have separate
 roles; the public endpoints are for testing, not production.
+
+## Robinhood Chain testnet (added 21 Oct 2026, D24)
+
+| Item | Value | Source |
+|---|---|---|
+| Chain ID | 46630 | docs.robinhood.com, chain |
+| Explorer | https://explorer.testnet.chain.robinhood.com | |
+| Stablecoin | Test USDC (tUSDC) `0xdc821cdb076a1b2c5d1ada9a242f33b97d34f0a5`, 6 decimals, permit, anyone can mint | usdc/contracts/test/TestUSDC.sol |
+| Why not Paxos USDG | its test faucet is closed in the user's country | |
+| Gas | Robinhood Chain testnet ETH | |
+
+The loan contract and the shielded dollar vault on each chain: `usdc/deployments/*.json`.

@@ -9,20 +9,26 @@ the guardians' exact checks are in [GUARDIANS.txt](GUARDIANS.txt).
 A ZEC holder who wants dollars without selling has two options today: hand the coins to
 a custodial lender, or move them into a public DeFi market. The first gives up control;
 the second gives up the privacy that made them hold ZEC. Hypothec keeps both: the
-collateral stays in Zcash's shielded pool, in a vault no single party can move.
+collateral stays in Zcash's shielded pool, in a vault no single party can move, and with
+Private on the dollar side is shielded too (section 6).
 
 ## 2. The parts
 
 | Part | Where | What it is |
 |---|---|---|
 | Vault | Zcash (shielded, Ironwood) | One FROST threshold key per loan, 3 of 4 holders: borrower, desk, guardian A, guardian B |
-| Loan contract | Base (`usdc/contracts/HypothecLoans.sol`) | Terms, payout, repayment, deadline, guardian fees. Nothing about the collateral |
+| Loan contract | The loan chain: Base Sepolia or Robinhood Chain testnet (`usdc/contracts/HypothecLoans.sol`) | Terms, payout, repayment, deadline, guardian fees. Nothing about the collateral |
+| Dollar vault | The loan chain (`usdc/contracts/vault/HypothecVault.sol`, `shield/`) | Shielded dollars as private notes, spent with a Groth16 proof made in the browser (private borrows and private desks) |
+| Relayer | `services/src/api.ts` (`/api/relay/*`) | Sends one-time keys' signed transactions and proofs, so they need no gas; it can refuse, never redirect |
 | Loanbook | `services/src/loanbook.ts` | The shared record: desks and their orders, the operator list, signed offers and acceptances, the signed log. Holds no keys |
 | Guardians | `services/src/referee.ts`, `policy.ts` | Rules engines, each holding one key share per loan |
 | Party services | `core/` (`hypothec-party`) | Each party's key share, one service per loan and role |
 | Relay | zafe | Carries encrypted messages between the parties; holds no keys, cannot spend |
 
 ## 3. A loan, step by step
+
+"Base" below means the loan chain in use: Base Sepolia or Robinhood Chain testnet. Each
+runs its own loanbook, guardians and desks; the Zcash side is shared.
 
 1. **Order.** A desk publishes signed terms: rate, term, start LTV, margin-call LTV,
    liquidation LTV, price buffer, how much it lends, its Zcash address for liquidation
@@ -152,7 +158,8 @@ repaid or liquidated: a guardian must never earn more by liquidating.
 
 ## 8. Status
 
-A test build on Zcash testnet (or a local chain) and Base Sepolia, with test coins. Not
-audited. The vault code (zafe) is pre-release and runs on pre-release Zcash libraries for
+A test build on Zcash testnet (or a local chain) with Base Sepolia or Robinhood Chain
+testnet, with test coins. Not audited. The shielded dollar vault uses test proving keys
+from a one-machine setup; a real deployment needs a multi-party ceremony. The vault code (zafe) is pre-release and runs on pre-release Zcash libraries for
 NU7. In the demo the Hypothec team runs both guardians, on the same host as the website,
 and says so on the Guardians page.

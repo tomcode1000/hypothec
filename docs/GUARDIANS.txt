@@ -68,7 +68,8 @@ part runs in its app.
 Every 3 seconds each guardian reads, for every loan it is named on:
   - the LOANBOOK: the lender's signed offer and the borrower's signed acceptance
     (terms, collateral, levels, both ZEC payout addresses), and the vault address;
-  - the LOAN CONTRACT on Base Sepolia: status, repaid amount, deadline;
+  - the LOAN CONTRACT on the loan chain (Base Sepolia or Robinhood Chain testnet):
+    status, repaid amount, deadline;
   - the VAULT, through ITS OWN party service and the vault's viewing key: address,
     3-of-4, balance (total and confirmed), and any spend proposed in it;
   - the PRICE FEED (section 7), only when a liquidation is proposed.

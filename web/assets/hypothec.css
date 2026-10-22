@@ -6664,3 +6664,17 @@ body::after {
     display: none;
   }
 }
+
+/* Phones: the four filters as a 2 x 2 grid of equal buttons, nothing scrolls sideways. */
+@media (max-width: 560px) {
+  .fchips {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    overflow: visible;
+  }
+  .fchip {
+    padding: 11px 10px;
+    font-size: 13px;
+    text-align: center;
+  }
+}

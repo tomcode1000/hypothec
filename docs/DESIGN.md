@@ -100,6 +100,13 @@ guardian that is gone for good (re-sharing its key share to a new operator) is n
 | Zcash, publicly | shielded transactions | owner, amount, that a loan exists |
 | Base, publicly | each loan contract: USDC amounts, payout address, status | any Zcash detail |
 
+**Private borrows (the shielded dollar vault).** With Private on, the dollar side is shielded
+too: the borrower on the loan chain is a one-time key (its acceptance is signed and a relayer
+submits it), the principal arrives as a private note in the vault, and repaying spends notes
+with a zero-knowledge proof made in the browser. The loan chain then shows an anonymous loan:
+its amount and terms, never who took it, who repaid it or where the dollars went. Entering
+and leaving the vault is public, as on Zcash.
+
 A fresh payout address per loan keeps the desk from linking it to anything else. Each loan
 also gets fresh party identities, so two loans cannot be linked through their key holders.
 

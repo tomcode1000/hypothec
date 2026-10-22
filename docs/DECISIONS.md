@@ -165,6 +165,23 @@ switch beside the wallet picks one and remembers it (?chain=robinhood in a link 
 The Borrow dialog names the chain and token. The Zcash side (party host, relay, test wallet)
 is shared. flow.ts repay passes on Robinhood.
 
+**D25. A shielded dollar side: private borrows (22 Oct, user).** On Zcash the collateral was
+already private; on Base and Robinhood the borrower's wallet, the payout and the repayment
+were public. Now a borrow can be private on the dollar side too, with Zcash's own design
+(as Gloam does for payments, built separately for loans): a vault contract
+(usdc/contracts/vault/HypothecVault.sol) holds dollars as private notes, Poseidon
+commitments in a Merkle tree, spent with a Groth16 proof (shield/circuits/spend.circom: up to
+two notes in, one change note, a public amount out) that publishes nullifiers and hides which
+note. A private borrow's borrower on the loan chain is a one-time key from the wallet's
+signature; it signs its acceptance and a relayer submits it (`acceptShielded`), so the key
+needs no gas and the wallet never appears. The principal is paid into the vault as a note only
+that seed can spend; repaying proves a spend straight into the loan (`transact` with the loan
+id; the recipient, loan, relayer and fee are hashed into the proof so a relayer cannot change
+them). Public: the loan's amount and terms (the contract enforces them), and money entering
+or leaving the vault. Private: who borrowed, who repaid, where the dollars went inside.
+Test proving keys from a one-machine setup and no audit: a real deployment needs a ceremony.
+Tested: 4 contract tests with real proofs; test/e2e-private.mjs through the screens.
+
 **D10. Desk, not pool (8 Oct; decided 14 Oct with D14).** The borrower app shows
 the desk like a pool card (available USDC, rate, term, start LTV, price, Borrow), but the
 money is one lender's. A depositor pool would need someone to hold the lender's key

@@ -8,9 +8,12 @@
   Writes are simulated against the chain first (the public RPC can lag a block, so the
   simulation is retried), then sent, then awaited until mined.
 */
-import { createPublicClient, createWalletClient, custom, defineChain, erc20Abi, fallback, getAddress, http, parseAbi } from 'viem'
+import { createPublicClient, createWalletClient, custom, defineChain, erc20Abi, fallback, getAddress, http, keccak256, parseAbi, parseSignature, toHex } from 'viem'
+import { privateKeyToAccount } from 'viem/accounts'
 import qrcode from 'qrcode-generator'
 import artifact from '../../usdc/artifacts/contracts/HypothecLoans.sol/HypothecLoans.json'
+import vaultArtifact from '../../usdc/artifacts/contracts/vault/HypothecVault.sol/HypothecVault.json'
+import { FIELD, SEED_MESSAGE, Tree, commitmentOf, noteKeys, nullifierOf, seedFrom, spendInput, toSolidity } from '../../shield/lib/notes.mjs'
 
 const LOANS_ABI = artifact.abi
 /* The dollar-side chain (Base Sepolia or Robinhood Chain testnet) comes from /api/state:
@@ -108,7 +111,9 @@ async function call(address, abi, functionName, args) {
   if (!wallet) throw new Error('Connect your wallet first.')
   await ensureChain()
   const { request } = await retry(() => pub.simulateContract({ address, abi, functionName, args, account }))
-  const hash = await wallet.writeContract({ ...request, gas: 300_000n })
+  // Gas as estimated, with room (a vault deposit inserts into its tree: far above a transfer).
+  const est = await pub.estimateContractGas({ address, abi, functionName, args, account }).catch(() => 300_000n)
+  const hash = await wallet.writeContract({ ...request, gas: (est * 13n) / 10n + 20_000n })
   const r = await pub.waitForTransactionReceipt({ hash })
   if (r.status !== 'success') throw new Error(`${functionName} failed on Base`)
   return hash
@@ -213,4 +218,164 @@ export function qr(text) {
   q.addData(text)
   q.make()
   return q.createSvgTag({ cellSize: 4, margin: 2, scalable: true })
+}
+
+/* -------------------------------------------------------------- private -- */
+/*
+  A private borrow (the shielded dollar vault, shield/): the borrower on the loan chain is a
+  one-time key, the dollars arrive as a private note in the vault, and repaying spends notes
+  with a zero-knowledge proof made here, in the browser. Every key comes from one seed, which
+  the wallet's signature of SEED_MESSAGE makes: nothing to back up, signing again finds all.
+*/
+let seed = null
+let seedFor = null
+const seedKey = () => `hypothec-seed:${cfg?.id}:${account}`
+
+/** The private seed (asks the wallet to sign once per session). */
+export async function privateSeed() {
+  if (seed && seedFor === account) return seed
+  try {
+    const kept = sessionStorage.getItem(seedKey())
+    if (kept) {
+      seedFor = account
+      seed = BigInt(kept)
+      return seed
+    }
+  } catch (e) {}
+  if (!wallet) throw new Error('Connect your wallet first.')
+  const sig = await wallet.signMessage({ account, message: SEED_MESSAGE })
+  seed = seedFrom(sig)
+  seedFor = account
+  try { sessionStorage.setItem(seedKey(), seed.toString()) } catch (e) {}
+  return seed
+}
+export const hasSeed = () => {
+  try { return !!(seed && seedFor === account) || !!sessionStorage.getItem(seedKey()) } catch (e) { return !!seed }
+}
+
+const fieldOf = (...parts) => BigInt(keccak256(toHex(parts.join(':')))) % FIELD
+
+/** The k-th one-time borrower key of this seed (a plain Ethereum key, used for one borrow). */
+export const oneTimeAccount = (s, k) => privateKeyToAccount(toHex(fieldOf('hypothec-borrower', s, k), { size: 32 }))
+
+/** A fresh one-time borrower: the first of this seed's keys not already used on this site. */
+export async function nextOneTime(used) {
+  const s = await privateSeed()
+  const seen = new Set(used.map((a) => a.toLowerCase()))
+  for (let k = 0; k < 1000; k++) {
+    const a = oneTimeAccount(s, k)
+    if (!seen.has(a.address.toLowerCase())) return { k, address: a.address }
+  }
+  throw new Error('No free one-time key')
+}
+
+/** This seed's one-time key for an address it made (searching its first keys). */
+async function oneTimeFor(address) {
+  const s = await privateSeed()
+  for (let k = 0; k < 1000; k++) {
+    const a = oneTimeAccount(s, k)
+    if (a.address.toLowerCase() === address.toLowerCase()) return a
+  }
+  throw new Error('This private borrow was made from another wallet.')
+}
+
+/** A loan's payout note keys: one fresh note per loan, found again from the loan id. */
+const payoutKeys = (s, loanId) => noteKeys(s, `loan:${loanId}`)
+
+/**
+ * Accepts a shielded loan with its one-time key: the signature the contract checks (the
+ * relayer submits it) and the signed loanbook entry. Returns what /api/relay/accept takes.
+ */
+export async function acceptPrivate(loanId, borrower, accept, entryText) {
+  const s = await privateSeed()
+  const key = await oneTimeFor(borrower)
+  const n = payoutKeys(s, loanId)
+  const deadline = BigInt(Math.floor(Date.now() / 1000) + 3600)
+  const digest = await pub.readContract({ address: cfg.loans, abi: LOANS_ABI, functionName: 'shieldedAcceptDigest', args: [loanId, n.owner, n.blinding, deadline] })
+  const sig = parseSignature(await key.signMessage({ message: { raw: digest } }))
+  const entrySig = await key.signMessage({ message: entryText })
+  return {
+    loan: loanId, accept, sig: entrySig,
+    note: { owner: n.owner.toString(), blinding: n.blinding.toString(), deadline: deadline.toString(), v: Number(sig.v), r: sig.r, s: sig.s },
+  }
+}
+
+/* Notes this browser made itself (change and deposits) are kept locally; a loan's payout
+   note is found again from the seed alone. */
+const notesKey = () => `hypothec-notes:${cfg?.id}:${account}`
+const keptNotes = () => {
+  try { return JSON.parse(localStorage.getItem(notesKey()) || '[]').map((n) => ({ amount: BigInt(n.amount), secret: BigInt(n.secret), blinding: BigInt(n.blinding) })) } catch (e) { return [] }
+}
+const keepNote = (n) => {
+  try {
+    const all = JSON.parse(localStorage.getItem(notesKey()) || '[]')
+    all.push({ amount: n.amount.toString(), secret: n.secret.toString(), blinding: n.blinding.toString() })
+    localStorage.setItem(notesKey(), JSON.stringify(all))
+  } catch (e) {}
+}
+
+/** The unspent notes of this wallet's private balance, given the vault's record and its loans. */
+export async function privateNotes(record, loans) {
+  const s = await privateSeed()
+  const leaves = record.leaves.map((x) => BigInt(x))
+  const spent = new Set(record.nullifiers.map(String))
+  const cands = [...loans.map((l) => ({ amount: BigInt(l.principal), ...payoutKeys(s, l.id) })), ...keptNotes()]
+  const out = []
+  const seen = new Set()
+  for (const n of cands) {
+    const c = commitmentOf(n)
+    const index = leaves.indexOf(c)
+    if (index < 0 || seen.has(c) || spent.has(String(nullifierOf(n)))) continue
+    seen.add(c)
+    out.push({ amount: n.amount, secret: n.secret, blinding: n.blinding, index })
+  }
+  return out
+}
+
+/** Moves dollars from the wallet into the private balance (approve, then the vault deposit). */
+export async function shieldIn(amount) {
+  const s = await privateSeed()
+  const n = noteKeys(s, `deposit:${Date.now()}:${Math.random()}`)
+  keepNote({ amount: BigInt(amount), secret: n.secret, blinding: n.blinding })
+  await call(cfg.usdc, erc20Abi, 'approve', [cfg.vault, BigInt(amount)])
+  return call(cfg.vault, vaultArtifact.abi, 'deposit', [BigInt(amount), n.owner, n.blinding])
+}
+
+let snark = null
+function loadSnark() {
+  if (window.snarkjs) return Promise.resolve(window.snarkjs)
+  snark ??= new Promise((ok, fail) => {
+    const tag = document.createElement('script')
+    tag.src = 'assets/zk/snarkjs.min.js'
+    tag.onload = () => ok(window.snarkjs)
+    tag.onerror = () => fail(new Error('Could not load the prover'))
+    document.head.appendChild(tag)
+  })
+  return snark
+}
+
+/**
+ * Proves a spend of up to two notes releasing `amount`: to `recipient`, or repaying `loanId`.
+ * Returns the body for /api/relay/transact. The change note is kept before anything is sent.
+ */
+export async function proveSpend(record, notes, amount, { recipient = '0x0000000000000000000000000000000000000000', loanId = '0x' + '00'.repeat(32) } = {}) {
+  const s = await privateSeed()
+  const want = BigInt(amount)
+  const ins = [...notes].sort((a, b) => (b.amount > a.amount ? 1 : -1)).slice(0, 2)
+  if (ins.reduce((a, n) => a + n.amount, 0n) < want) throw new Error('Your private balance is too small for this in one step.')
+  const pick = ins[0].amount >= want ? [ins[0]] : ins
+  const change = noteKeys(s, `change:${Date.now()}:${Math.random()}`)
+  const ext = { recipient, loanId, relayer: '0x0000000000000000000000000000000000000000', fee: 0n }
+  const tree = new Tree(record.leaves.map((x) => BigInt(x)))
+  const { input, change: out } = spendInput(tree, pick, want, change, ext)
+  const snarkjs = await loadSnark()
+  const { proof, publicSignals } = await snarkjs.groth16.fullProve(input, 'assets/zk/spend.wasm', 'assets/zk/spend.zkey')
+  const p = toSolidity(proof, publicSignals)
+  if (out.amount > 0n) keepNote(out)
+  const str = (x) => x.toString()
+  return {
+    a: p.a.map(str), b: p.b.map((r) => r.map(str)), c: p.c.map(str),
+    root: str(p.signals[0]), publicAmount: str(p.signals[1]), nullifiers: [str(p.signals[3]), str(p.signals[4])], outCommitment: str(p.signals[5]),
+    ext: { ...ext, fee: '0' },
+  }
 }

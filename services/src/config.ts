@@ -25,7 +25,12 @@ export const EXPLORER = CHAIN.explorer;
 export const LOANS_ABI = artifact.abi as Abi;
 const DEPLOYMENT = join(__dirname, "..", "..", "usdc", "deployments", CHAIN.deployments);
 if (!existsSync(DEPLOYMENT)) throw new Error(`HypothecLoans is not deployed on ${CHAIN.label} yet: run usdc/scripts/deploy.ts ${CHAIN.key}`);
-export const LOANS: Address = JSON.parse(readFileSync(DEPLOYMENT, "utf8")).HypothecLoans;
+const deployment = JSON.parse(readFileSync(DEPLOYMENT, "utf8"));
+export const LOANS: Address = deployment.HypothecLoans;
+/// The shielded dollar vault on this chain, and the block it was deployed at (its tree is
+/// read from its events from there). Absent on a chain without one.
+export const VAULT: Address | undefined = deployment.HypothecVault;
+export const VAULT_BLOCK = BigInt(deployment.vaultBlock ?? 0);
 
 // Read when present: the rules and loanbook tests (CI) run without any wallet file, and a
 // role's key is asked for only when something acts as that role.
@@ -34,7 +39,7 @@ const wallets: Record<string, { address: Address; key: Hex }> = existsSync(WALLE
 export const BASE_ADDRESS: Record<Role, Address> = Object.fromEntries(ROLES.map((r) => [r, wallets[r]?.address])) as Record<Role, Address>;
 /// The four roles' wallets, plus "lender2": a second test lender, so a borrow can be split
 /// across two desks run by different wallets (D16).
-export type BaseWallet = Role | "lender2";
+export type BaseWallet = Role | "lender2" | "relayer";
 const wallet = (who: BaseWallet) => {
   const w = wallets[who];
   if (!w) throw new Error(`no test wallet "${who}" in ${WALLETS_FILE}`);
@@ -42,6 +47,8 @@ const wallet = (who: BaseWallet) => {
 };
 export const baseKey = (who: BaseWallet): Hex => wallet(who).key;
 export const baseAddress = (who: BaseWallet): Address => wallet(who).address;
+/// Whether the wallet file has this wallet (the relayer is newer than the others).
+export const hasWallet = (who: BaseWallet) => !!wallets[who];
 
 // Stand-ins for the parties' own Zcash wallets. Regtest: addresses 1, 2 and 3 of zafe's
 // throwaway example key (crates/zafe-core/examples/vault_address.rs, deterministic). Testnet:

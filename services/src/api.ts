@@ -15,8 +15,8 @@ import { createServer, type IncomingMessage, type ServerResponse } from "http";
 import { existsSync, readFileSync, statSync } from "fs";
 import { extname, join, normalize, sep } from "path";
 import { getAddress, isAddress, type Hex } from "viem";
-import { chainNow, getLoan, isOverdue, usdcBalance } from "./base";
-import { BASE_ADDRESS, baseAddress, EXPLORER, LOANS, TEST_ZEC_ADDRESS, USDC } from "./config";
+import { baseAs, chainNow, getLoan, isOverdue, usdcBalance, vaultRecord } from "./base";
+import { BASE_ADDRESS, baseAddress, EXPLORER, hasWallet, LOANS, TEST_ZEC_ADDRESS, USDC, VAULT, VAULT_BLOCK } from "./config";
 import { CHAIN, CHAINS } from "./chains";
 import {
   borrowerRelease, buildOffer, keySetup, lenderCancel, lenderFund, lenderLiquidate, lenderOffer, loanbook,
@@ -47,6 +47,8 @@ interface Basket {
   id: string;
   borrower: Hex;
   usdcAddress: Hex;
+  /// A private borrow: the borrower is a one-time key and the dollars go into the vault.
+  shielded?: boolean;
   at: number;
   pieces: { desk: Hex; principalUsdc: bigint; loan?: Hex }[];
 }
@@ -111,6 +113,10 @@ async function recoverBaskets() {
 
 type Price = Awaited<ReturnType<typeof zecPrice>> | { error: string };
 
+/// The relayer: submits private borrows' signed acceptances and vault spends, paying their
+/// gas, from its own wallet (or the test borrower's, in a wallet file without one).
+const RELAYER = () => baseAs(hasWallet("relayer") ? "relayer" : "borrower");
+
 /// The guardians accept a lock once it has this many confirmations (the wallet's spendable rule).
 const LOCK_CONFIRMATIONS = 10;
 const firstSeen = new Map<string, number>();
@@ -163,6 +169,8 @@ async function loanView(doc: LoanDoc, desks: DeskTerms[], price: Price) {
     loanbookStatus: doc.status,
     onchain: { status: onchain.statusName, repaid: onchain.repaid, payoutTo: onchain.payoutTo, lockA: onchain.lockA, lockB: onchain.lockB, liqA: onchain.liqA, liqB: onchain.liqB },
     ended: ended(doc, onchain.statusName, vaultZat),
+    /// Paid out into the shielded vault (a private borrow).
+    shielded: !!VAULT && same(onchain.payoutTo, VAULT),
     vaultZat,
     spendableZat: balance?.spendable_zat ?? 0,
     confirmations,
@@ -202,6 +210,7 @@ async function state() {
     id: b.id,
     borrower: b.borrower,
     usdcAddress: b.usdcAddress,
+    shielded: !!b.shielded,
     at: b.at,
     pieces: b.pieces.map((p, i) => {
       const d = deskOf(desks, p.desk);
@@ -239,6 +248,7 @@ async function state() {
       /// Every chain this site offers, for the switch (this one first).
       all: CHAIN_LIST,
       loans: LOANS, usdc: USDC, zecPrefix: ZEC_PREFIX,
+      vault: VAULT ?? null, vaultBlock: VAULT_BLOCK.toString(),
     },
     addresses: BASE_ADDRESS,
     // On this test chain the parties may not have Zcash wallets that reach it; these are
@@ -412,7 +422,7 @@ async function act(path: string, body: Record<string, unknown>) {
       }
       const total = pieces.reduce((t, p) => t + p.principalUsdc, 0n);
       if (total > MAX_BORROW_USDC) throw new Error(`at most ${Number(MAX_BORROW_USDC) / 1e6} USDC in one borrow (testnet faucet limits)`);
-      const basket: Basket = { id: `b${Date.now().toString(36)}`, borrower: getAddress(borrower), usdcAddress: getAddress(to), at: Date.now(), pieces };
+      const basket: Basket = { id: `b${Date.now().toString(36)}`, borrower: getAddress(borrower), usdcAddress: getAddress(to), shielded: !!body.shielded && !!VAULT, at: Date.now(), pieces };
       baskets.push(basket);
       return { basket: basket.id };
     }
@@ -437,6 +447,33 @@ async function act(path: string, body: Record<string, unknown>) {
       if (!same(onchain.borrower, doc.offer.borrower)) throw new Error("accepted by someone else");
       await loanbook.accept(doc.id, { offerDigest: accept.offerDigest, borrowerZec: accept.borrowerZec }, body.sig as Hex);
       return run("keys", [doc.id], () => keySetup(doc.id));
+    }
+    /* ------------------------------------------------- shielded (relayer) -- */
+    // A private borrow's one-time key signs; this server submits, so the key needs no gas
+    // and the borrower's wallet never appears on the loan chain (DECISIONS D25).
+    case "/api/relay/accept": {
+      const doc = await loanDoc(body);
+      if (doc.accept) throw new Error("already accepted");
+      const accept = body.accept as Accept;
+      if (!ZEC_ADDRESS.test(String(accept?.borrowerZec ?? ""))) throw new Error(`the ZEC payout address must be a shielded address on this chain (${ZEC_PREFIX}…)`);
+      if (accept.offerDigest !== offerDigest(doc.id, doc.offer)) throw new Error("the acceptance is for different terms");
+      const n = body.note as { owner: string; blinding: string; deadline: string; v: number; r: Hex; s: Hex };
+      await RELAYER().loans("acceptShielded", [doc.id, BigInt(n.owner), BigInt(n.blinding), BigInt(n.deadline), n.v, n.r, n.s]);
+      const onchain = await onchainStatus(doc.id, "Accepted");
+      if (!same(onchain.borrower, doc.offer.borrower)) throw new Error("accepted by someone else");
+      await loanbook.accept(doc.id, { offerDigest: accept.offerDigest, borrowerZec: accept.borrowerZec }, body.sig as Hex);
+      return run("keys", [doc.id], () => keySetup(doc.id));
+    }
+    case "/api/relay/transact": {
+      // A spend from the vault, proved in the browser: to a wallet, or repaying a loan.
+      const t = body as { a: string[]; b: string[][]; c: string[]; root: string; publicAmount: string; nullifiers: string[]; outCommitment: string; ext: { recipient: Hex; loanId: Hex; relayer: Hex; fee: string } };
+      if (BigInt(t.ext.fee) !== 0n) throw new Error("this relayer takes no fee");
+      const big = (x: string) => BigInt(x);
+      const tx = await RELAYER().vault("transact", [
+        { a: t.a.map(big), b: t.b.map((r) => r.map(big)), c: t.c.map(big) }, big(t.root), big(t.publicAmount), t.nullifiers.map(big), big(t.outCommitment),
+        { recipient: t.ext.recipient, loanId: t.ext.loanId, relayer: t.ext.relayer, fee: 0n },
+      ]);
+      return { tx };
     }
     case "/api/borrower/lock": {
       // Every funded piece of the borrow whose vault still waits for its ZEC, in one go.
@@ -641,7 +678,7 @@ if (AGENTS) {
 
 const TYPES: Record<string, string> = {
   ".html": "text/html; charset=utf-8", ".css": "text/css", ".js": "text/javascript", ".svg": "image/svg+xml", ".png": "image/png",
-  ".jpg": "image/jpeg", ".mp4": "video/mp4",
+  ".jpg": "image/jpeg", ".mp4": "video/mp4", ".wasm": "application/wasm",
 };
 
 /// Link previews need absolute addresses: pages carry __SITE__ in their share tags, and it
@@ -717,7 +754,9 @@ recoverBaskets().finally(() =>
     }
     try {
       if (!path.startsWith("/api/")) return serveStatic(path, req, res);
-      const out = req.method === "GET" && path === "/api/state" ? await snapshot() : await act(path, await body(req));
+      const out = req.method === "GET" && path === "/api/state" ? await snapshot()
+        : req.method === "GET" && path === "/api/vault" ? await vaultRecord()
+        : await act(path, await body(req));
       if (path !== "/api/state") refreshState().catch(() => undefined); // show the action's effect promptly
       res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify(out, big));
     } catch (e) {

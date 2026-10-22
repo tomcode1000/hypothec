@@ -251,6 +251,11 @@ const borrowDialog = () => `<dialog class="dialog dialog-wide" data-app="borrow-
     <p class="fine" data-app="fill-note"></p>
     <div class="sheet">${line('Loan chain', 'q-chain')}${line('You lock', 'q-collateral')}${line('You owe in all', 'q-owed')}${line('Rate', 'q-apr')}${line('Due', 'q-due')}</div>
     <p class="fine">Sized at each desk's start LTV and the one-hour average price your guardians use, <b data-app="sizing-price">—</b>.</p>
+    <label class="privsw" data-app="priv-wrap" hidden>
+      <input type="checkbox" data-input="private" checked/>
+      <span class="privsw-knob" aria-hidden="true"></span>
+      <span class="privsw-text"><b>Private borrow</b><em>Your wallet never appears on <span data-net>Base</span>. A one-time key borrows; the dollars arrive in your private balance.</em></span>
+    </label>
     <div class="preflight" data-app="preflight-borrow"></div>
     ${btn('Request', { act: 'borrower/request', wide: true, key: 'ask-btn' })}
   </div>

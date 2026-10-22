@@ -16,6 +16,11 @@ for (const f of ['hypothec.css', 'app.js', 'og.png', 'icon-512.png', 'apple-touc
 await mkdir(join(OUT, 'assets', 'media'), { recursive: true })
 for (const f of await readdir(join(import.meta.dirname, 'assets', 'media'))) await copyFile(join(import.meta.dirname, 'assets', 'media', f), join(OUT, 'assets', 'media', f))
 await writeFile(join(OUT, 'assets', 'favicon.svg'), FAVICON)
+// The private balance's prover: snarkjs's browser build and the circuit with its test keys.
+await mkdir(join(OUT, 'assets', 'zk'), { recursive: true })
+const SHIELD = join(import.meta.dirname, '..', 'shield')
+await copyFile(join(SHIELD, 'node_modules', 'snarkjs', 'build', 'snarkjs.min.js'), join(OUT, 'assets', 'zk', 'snarkjs.min.js'))
+for (const f of ['spend.wasm', 'spend.zkey']) await copyFile(join(SHIELD, 'build', f), join(OUT, 'assets', 'zk', f))
 await build({
   entryPoints: [join(import.meta.dirname, 'wallet', 'wallet.mjs')],
   outfile: join(OUT, 'assets', 'wallet.js'),

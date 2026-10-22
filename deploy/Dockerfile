@@ -27,6 +27,11 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
 # ------------------------------------------------- contract ABI, website, services --
 FROM node:22-bookworm AS node
 WORKDIR /app
+# The shielded vault's note library, prover and committed test keys (the website bundles
+# them; the contract deploy script uses its Poseidon contracts).
+COPY shield/package.json shield/package-lock.json shield/
+RUN cd shield && npm ci
+COPY shield shield
 COPY usdc/package.json usdc/package-lock.json usdc/
 RUN cd usdc && npm ci
 COPY usdc usdc

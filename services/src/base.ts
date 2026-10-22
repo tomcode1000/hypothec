@@ -5,7 +5,10 @@ import {
   type Abi, type Address, type Hash, type Hex,
 } from "viem";
 import { nonceManager, privateKeyToAccount } from "viem/accounts";
-import { baseKey, EXPLORER, LOANS, LOANS_ABI, USDC, type BaseWallet } from "./config";
+import { baseKey, EXPLORER, LOANS, LOANS_ABI, USDC, VAULT, VAULT_BLOCK, type BaseWallet } from "./config";
+import vaultArtifact from "../../usdc/artifacts/contracts/vault/HypothecVault.sol/HypothecVault.json";
+
+export const VAULT_ABI = vaultArtifact.abi as Abi;
 import { CHAIN } from "./chains";
 
 // The public RPC sometimes takes more than viem's default 10 s to answer; a resent signed
@@ -79,8 +82,13 @@ export function baseAs(role: BaseWallet) {
   async function call(address: Address, abi: Abi, functionName: string, args: readonly unknown[]): Promise<string> {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { request } = await retry(() => pub.simulateContract({ address, abi, functionName, args, account: w.account } as any));
+    // Gas as estimated, with room: a shielded payout inserts a note into the vault's tree
+    // and a spend verifies a proof, both far above a plain transfer.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const hash: Hash = await w.writeContract({ ...(request as any), gas: 300_000n });
+    const est = await retry(() => pub.estimateContractGas({ address, abi, functionName, args, account: w.account } as any)).catch(() => 300_000n);
+    const gas = (est * 13n) / 10n + 20_000n;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const hash: Hash = await w.writeContract({ ...(request as any), gas });
     const r = await pub.waitForTransactionReceipt({ hash });
     if (r.status !== "success") throw new Error(`${functionName} failed: ${EXPLORER}/tx/${hash}`);
     return `${EXPLORER}/tx/${hash}`;
@@ -88,7 +96,41 @@ export function baseAs(role: BaseWallet) {
   return {
     address: w.account.address,
     loans: (fn: string, args: readonly unknown[]) => call(LOANS, LOANS_ABI, fn, args),
+    vault: (fn: string, args: readonly unknown[]) => {
+      if (!VAULT) throw new Error("no shielded vault on this chain");
+      return call(VAULT, VAULT_ABI, fn, args);
+    },
     approveUsdc: (amount: bigint) => call(USDC, erc20Abi as Abi, "approve", [LOANS, amount]),
     signMessage: (message: string) => w.signMessage({ message }),
   };
+}
+
+/*
+  The vault's public record, for browsers: every note commitment in tree order and every spent
+  nullifier. Read from the vault's events, in chunks from its deployment block, and kept: each
+  call reads only the blocks since the last.
+*/
+const vaultSeen = { to: 0n, leaves: [] as string[], nullifiers: new Set<string>() };
+const COMMIT_EVENT = { type: "event", name: "NewCommitment", inputs: [{ name: "commitment", type: "uint256", indexed: false }, { name: "index", type: "uint256", indexed: false }] } as const;
+const NULLIFIER_EVENT = { type: "event", name: "NewNullifier", inputs: [{ name: "nullifier", type: "uint256", indexed: false }] } as const;
+let vaultReading: Promise<void> | null = null;
+export async function vaultRecord() {
+  if (!VAULT) return null;
+  vaultReading ??= (async () => {
+    const head = await retry(() => pub.getBlockNumber());
+    let from = vaultSeen.to ? vaultSeen.to + 1n : VAULT_BLOCK;
+    while (from <= head) {
+      const to = from + 4_999n < head ? from + 4_999n : head;
+      const [commits, nulls] = await Promise.all([
+        retry(() => pub.getLogs({ address: VAULT, event: COMMIT_EVENT, fromBlock: from, toBlock: to })),
+        retry(() => pub.getLogs({ address: VAULT, event: NULLIFIER_EVENT, fromBlock: from, toBlock: to })),
+      ]);
+      for (const l of commits) vaultSeen.leaves[Number(l.args.index)] = String(l.args.commitment);
+      for (const l of nulls) vaultSeen.nullifiers.add(String(l.args.nullifier));
+      vaultSeen.to = to;
+      from = to + 1n;
+    }
+  })().finally(() => (vaultReading = null));
+  await vaultReading;
+  return { vault: VAULT, leaves: vaultSeen.leaves, nullifiers: [...vaultSeen.nullifiers], block: vaultSeen.to.toString() };
 }

@@ -6023,3 +6023,148 @@ body::after {
 .heading-mk > .mk-intro {
   align-content: start;
 }
+
+/* Private borrow: a switch in the Borrow dialog. While it is on, the payout line goes (the
+   dollars go to the private balance, not to a wallet). */
+.privsw {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 12px;
+  margin: 14px 0 0;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--hair));
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+  cursor: pointer;
+}
+
+.privsw[hidden] {
+  display: none;
+}
+
+.privsw input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.privsw-knob {
+  position: relative;
+  width: 36px;
+  height: 20px;
+  margin-top: 1px;
+  border-radius: 99px;
+  background: var(--border-2);
+  transition: background-color 0.15s;
+}
+
+.privsw-knob::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--surface);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+  transition: transform 0.15s;
+}
+
+.privsw input:checked + .privsw-knob {
+  background: var(--accent);
+}
+
+.privsw input:checked + .privsw-knob::after {
+  transform: translateX(16px);
+}
+
+.privsw input:focus-visible + .privsw-knob {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.privsw-text {
+  display: grid;
+  gap: 2px;
+}
+
+.privsw-text b {
+  font-size: 14px;
+}
+
+.privsw-text em {
+  font-style: normal;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--ink-3);
+}
+
+.dialog:has(.privsw:not([hidden]) input:checked) .dest {
+  display: none;
+}
+
+/* The private balance, on Portfolio. */
+.priv4 {
+  display: grid;
+  gap: 16px;
+  margin-top: 20px;
+  padding: 20px 22px;
+}
+
+.priv4[hidden] {
+  display: none;
+}
+
+.priv4-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.priv4-head > div {
+  display: grid;
+  gap: 4px;
+}
+
+.priv4-amt {
+  font-family: var(--display-face);
+  font-size: 28px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.priv4-head em {
+  font-style: normal;
+  font-size: 13px;
+  color: var(--ink-3);
+}
+
+.priv4-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1.4fr) auto;
+  align-items: end;
+  gap: 12px;
+}
+
+.priv4-actions[hidden] {
+  display: none;
+}
+
+.priv4-actions .field {
+  margin: 0;
+}
+
+.priv4-actions .field input[type='text'] {
+  margin-top: 8px;
+}
+
+@media (max-width: 760px) {
+  .priv4-actions {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

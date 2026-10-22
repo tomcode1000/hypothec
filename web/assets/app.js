@@ -215,9 +215,20 @@
   /* Jobs not finished for a loan: its buttons wait. */
   const busyLoan = (s, id) => s.jobs.some((j) => !j.done && j.loans.includes(id))
 
+  /* The one-time borrower addresses this browser made for the connected wallet's private
+     borrows (kept locally; the keys themselves come from the wallet's signature). */
+  const privKey = () => `hypothec-private:${last?.chain?.id}:${(me() || '').toLowerCase()}`
+  const privAddrs = () => {
+    try { return JSON.parse(localStorage.getItem(privKey()) || '[]') } catch (e) { return [] }
+  }
+  const addPrivAddr = (a) => {
+    try { localStorage.setItem(privKey(), JSON.stringify([...new Set([...privAddrs(), a])])) } catch (e) {}
+  }
+  const isMine = (a) => same(a, me()) || privAddrs().some((x) => same(x, a))
+
   /* The connected borrower's borrow: the newest one still going, else the newest. */
   function myBasket(s) {
-    const mine = s.baskets.filter((b) => same(b.borrower, me())).sort((a, b) => b.at - a.at)
+    const mine = s.baskets.filter((b) => isMine(b.borrower)).sort((a, b) => b.at - a.at)
     const going = mine.find((b) => b.pieces.some((p) => !p.loan || !ended(loanById(s, p.loan))))
     return going || mine[0] || null
   }
@@ -1189,6 +1200,8 @@
       $$('[data-net]').forEach((el) => { if (el.textContent !== NETS) el.textContent = NETS })
       $$('[data-net-full]').forEach((el) => { if (el.textContent !== NET) el.textContent = NET })
       set('q-chain', `${NET} \u00b7 ${SYM}`)
+      $$('[data-app="priv-wrap"]').forEach((el) => (el.hidden = !s.chain.vault))
+      paintPrivate(s).catch(() => undefined)
       paintChainSwitch(s)
       const who = me()
       if (who) $$('[data-app="wallet-label"] em').forEach((el) => { if (el.textContent !== NET) el.textContent = NET })
@@ -1356,6 +1369,7 @@
      another click: the borrower's app asks the guardians to release each one. */
   async function repayLoans(loans) {
     if (!loans.length) throw new Error('Nothing to repay')
+    if (loans.every((l) => l.shielded)) return repayPrivately(loans)
     needWallet(loans[0].offer.borrower, 'the borrower')
     await refreshBalances(true)
     if (bal && bal.eth < FEE_ETH) throw new Error(`This wallet has no ${NET} ETH for the fee. Add a little, then try again.`)
@@ -1364,6 +1378,55 @@
     confirm(`Repay ${usdc(total)}: sign the ${SYM} permit, then confirm one transaction`)
     await W.repayAll(loans.map((l) => l.id), total)
     toast(`Repaid ${usdc(total)}. Your ZEC is on its way back…`)
+    await post('borrower/release-all', { loans: loans.map((l) => l.id) }).catch((e) => toast(plain(e), 'bad'))
+  }
+
+  /* ------------------------------------------------------ private balance -- */
+
+  /* The vault's public record (every note commitment, every spent nullifier), from the API. */
+  const vaultRecord = async () => (await apiFetch('vault')).json()
+  /* The payout notes of this wallet's private loans, by loan. */
+  const myPrivateLoans = (s) => s.loans.filter((l) => l.shielded && isMine(l.offer.borrower)).map((l) => ({ id: l.id, principal: l.offer.principalUsdc }))
+  let privCache = { at: 0, notes: null }
+  async function privateBalance(s, force = false) {
+    if (!force && privCache.notes && Date.now() - privCache.at < 15_000) return privCache.notes
+    const notes = await W.privateNotes(await vaultRecord(), myPrivateLoans(s))
+    privCache = { at: Date.now(), notes }
+    return notes
+  }
+  async function paintPrivate(s) {
+    const card = $('[data-app="private-card"]')
+    if (!card) return
+    card.hidden = !(s.chain?.vault && me() && W)
+    if (card.hidden) return
+    const open = W.hasSeed()
+    $$('[data-app="priv-open"]').forEach((el) => (el.hidden = open))
+    $$('[data-app="priv-actions"]').forEach((el) => (el.hidden = !open))
+    if (!open) return set('priv-balance', 'Locked')
+    try {
+      const notes = await privateBalance(s)
+      set('priv-balance', usdc(sum(notes.map((n) => n.amount))))
+      set('priv-note', notes.length ? `${notes.length} private note${notes.length === 1 ? '' : 's'} in the vault. Only you can see or spend them.` : 'Empty. A private borrow pays in here; you can also add from your wallet.')
+    } catch (e) {
+      set('priv-note', plain(e))
+    }
+  }
+
+  /* Repays private loans from the private balance: one proof per loan, made here, sent by
+     the relayer, so no wallet of the borrower appears. Then the ZEC comes back as usual. */
+  async function repayPrivately(loans) {
+    let notes = await privateBalance(last, true)
+    const total = sum(loans.map((l) => BigInt(l.offer.owedUsdc) - BigInt(l.onchain.repaid)))
+    const have = sum(notes.map((n) => n.amount))
+    if (have < total) throw new Error(`Repaying needs ${usdc(total)}; your private balance holds ${usdc(have)}. Add ${usdc(total - have)} to it first (Private balance, below).`)
+    for (const l of loans) {
+      const left = BigInt(l.offer.owedUsdc) - BigInt(l.onchain.repaid)
+      toast(`Proving the repayment of ${l.deskName}'s loan in your browser\u2026`)
+      const body = await W.proveSpend(await vaultRecord(), notes, left, { loanId: l.id })
+      await post('relay/transact', body)
+      notes = await privateBalance(last, true)
+    }
+    toast(`Repaid ${usdc(total)} privately. Your ZEC is on its way back\u2026`)
     await post('borrower/release-all', { loans: loans.map((l) => l.id) }).catch((e) => toast(plain(e), 'bad'))
   }
 
@@ -1377,6 +1440,16 @@
       if (!f.pieces.length) throw new Error('Type an amount')
       toast('Sending your request…')
       if (f.left > 0n) throw new Error(`The ticked orders cover only ${usdc(f.want - f.left)}`)
+      const pieces = f.pieces.map((p) => ({ desk: p.desk.owner, amountUsdc: Number(p.take) / 1e6 }))
+      if (last.chain.vault && $('[data-input="private"]')?.checked) {
+        // A private borrow: a fresh one-time key is the borrower (from your wallet's signature).
+        confirm('Sign once to open your private keys')
+        const used = [...last.baskets.map((b) => b.borrower), ...last.loans.map((l) => l.offer.borrower)]
+        const { address } = await W.nextOneTime(used)
+        addPrivAddr(address)
+        await post('borrower/request', { borrower: address, usdcAddress: address, shielded: true, pieces })
+        return void go('loan.html')
+      }
       await post('borrower/request', {
         borrower: me(),
         usdcAddress: $('[data-input="usdc-address"]').value.trim() || me(),
@@ -1388,6 +1461,17 @@
       const b = myBasket(last)
       const offered = basketLoans(last, b).filter((l) => l.onchain.status === 'Offered' && !l.accepted)
       if (!offered.length) throw new Error('No offer to accept yet')
+      if (b.shielded) {
+        // The one-time key signs both; the relayer submits, so no wallet fee and no trace.
+        const borrowerZec = $('[data-input="zec-payout"]').value.trim()
+        if (!new RegExp(`^${last.chain.zecPrefix}`).test(borrowerZec)) throw new Error(`Paste a shielded address from your Zcash wallet (${last.chain.zecPrefix}\u2026 on this chain)`)
+        for (const l of offered) {
+          const accept = { offerDigest: l.offerDigest, borrowerZec }
+          const body = await W.acceptPrivate(l.id, l.offer.borrower, accept, W.message('accept', l.id, accept))
+          await post('relay/accept', body)
+        }
+        return void toast(offered.length > 1 ? `Accepted ${offered.length} offers privately. The vaults are being made\u2026` : 'Accepted privately. The four keys are being made\u2026')
+      }
       needWallet(b.borrower, 'the borrower')
       await refreshBalances(true)
       if (bal && bal.eth < FEE_ETH) throw new Error(`This wallet has no ${NET} ETH for the fee, so the wallet cannot send it. Add a little (see the box above), then try again.`)
@@ -1402,6 +1486,33 @@
         await post('borrower/accept', { loan: l.id, accept, sig })
       }
       toast(offered.length > 1 ? `Accepted ${offered.length} offers. The vaults are being made…` : 'Accepted. The four keys are being made…')
+    },
+    'private/open': async () => {
+      if (!me()) await connectWallet()
+      confirm('Sign once to open your private balance')
+      await W.privateSeed()
+      await paintPrivate(last)
+    },
+    'private/add': async () => {
+      const amount = BigInt(Math.round(Number($('[data-input="priv-add"]').value || 0) * 1e6))
+      if (amount <= 0n) throw new Error('Type an amount to add')
+      confirm(`Approve, then add ${usdc(amount)} to your private balance`)
+      await W.shieldIn(amount)
+      await privateBalance(last, true)
+      await paintPrivate(last)
+      toast(`${usdc(amount)} is now private`)
+    },
+    'private/withdraw': async () => {
+      const amount = BigInt(Math.round(Number($('[data-input="priv-out"]').value || 0) * 1e6))
+      const to = $('[data-input="priv-to"]').value.trim()
+      if (amount <= 0n) throw new Error('Type an amount to withdraw')
+      if (!/^0x[0-9a-fA-F]{40}$/.test(to)) throw new Error('Paste the address to send it to')
+      toast('Proving in your browser\u2026')
+      const body = await W.proveSpend(await vaultRecord(), await privateBalance(last, true), amount, { recipient: to })
+      await post('relay/transact', body)
+      await privateBalance(last, true)
+      await paintPrivate(last)
+      toast(`${usdc(amount)} sent to ${to.slice(0, 6)}\u2026${to.slice(-4)}, from no wallet of yours`)
     },
     'borrower/repay': async (btn) => repayLoans([loanById(last, btn.dataset.loan)]),
     'borrower/repay-all': async () => repayLoans(basketLoans(last, myBasket(last)).filter((l) => l.onchain.status === 'Active')),

@@ -182,6 +182,31 @@ or leaving the vault. Private: who borrowed, who repaid, where the dollars went 
 Test proving keys from a one-machine setup and no audit: a real deployment needs a ceremony.
 Tested: 4 contract tests with real proofs; test/e2e-private.mjs through the screens.
 
+**D26. Private desks: the lender's side shielded too (22 Oct, user).** With D25 a private
+borrower was hidden but the desk still lent from a public wallet. Now a desk can be private:
+a one-time key from the lender's wallet signature owns it, signs its terms, its offers
+(`offerShielded`) and its cancels (`cancelSigned`), and the relayer submits them, so the key
+needs no gas and the wallet never appears. It funds from its private balance with a proof
+(`transact` with the loan contract as recipient: the vault approves the funding and calls
+`fundFromVault`, which only the vault may call and only for a private desk's loan). What comes
+back is held by the loan contract and paid into the vault as one private note per loan when
+the loan ends: the amount owed when Repaid, what was repaid when Liquidated, the funding when
+Cancelled after funding, so the desk finds it again from its seed and the loan's status
+alone. The vault checks a repay or a funding used its whole approval (not its balance, since
+a repayment can come straight back in as the desk's note). Markets shows a private desk with
+a "Private" chip; its order counts at face value, since its balance cannot be seen (if it
+cannot fund, the loan never reaches the lock and no ZEC moves). Liquidation is unchanged: the
+desk's ZEC share goes to the shielded address in its terms. Public: the loan's amount and
+terms; private: which wallet lent and where the repayment went. Tested: 3 more contract
+tests with real proofs (private on both sides; a private desk's signed cancel refunding into
+its note; only the vault funds a private desk's loan) and test/e2e-private-lend.mjs.
+
+**D27. Borrow as an order ticket (22 Oct, user).** The Borrow dialog had grown into one
+long column (about 900 px). It is now two columns: the order (amount, which desks fill it,
+Private) and a term sheet (what you lock, what you repay, rate, due, chain, the wallet check
+and the button), one screen tall on a laptop and stacked on a phone. A private borrow needs
+no ETH, so its wallet check asks only for the interest.
+
 **D10. Desk, not pool (8 Oct; decided 14 Oct with D14).** The borrower app shows
 the desk like a pool card (available USDC, rate, term, start LTV, price, Borrow), but the
 money is one lender's. A depositor pool would need someone to hold the lender's key

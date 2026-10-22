@@ -107,6 +107,12 @@ with a zero-knowledge proof made in the browser. The loan chain then shows an an
 its amount and terms, never who took it, who repaid it or where the dollars went. Entering
 and leaving the vault is public, as on Zcash.
 
+**Private desks.** The lender's side can be shielded the same way: a one-time key owns the
+desk and signs its offers and cancels (the relayer submits them), the desk funds from its
+private balance with a proof, and what the borrower repays comes back into the vault as the
+desk's private note when the loan ends. With both sides private, the loan chain shows only an
+anonymous loan between two one-time keys.
+
 A fresh payout address per loan keeps the desk from linking it to anything else. Each loan
 also gets fresh party identities, so two loans cannot be linked through their key holders.
 

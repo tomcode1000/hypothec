@@ -233,7 +233,9 @@
     return going || mine[0] || null
   }
   const basketLoans = (s, b) => (b ? b.pieces.map((p) => loanById(s, p.loan)).filter(Boolean) : [])
-  const myDesk = (s) => s.desks.find((d) => same(d.owner, me())) || null
+  const myDesk = (s) => s.desks.filter((d) => isMine(d.owner)).sort((a, b) => (b.at || 0) - (a.at || 0))[0] || null
+  /* A private desk: owned by one of this wallet's one-time keys, not the wallet itself. */
+  const isPrivateDesk = (owner) => !same(owner, me()) && isMine(owner)
   const deskName = (s, owner) => s.desks.find((d) => same(d.owner, owner))?.name || 'Desk'
 
   /* The loans the page is about: the borrower's borrow, the desk's loans, or (on the log
@@ -511,7 +513,7 @@
     const lines = []
     if (!me()) return html(key, '')
     if (!bal || balFor !== me()) return html(key, '<p class="pf-line"><span>Your wallet</span><b>checking…</b></p>')
-    lines.push(`<p class="pf-line"><span>Your wallet on ${NET}</span><b>${eth(bal.eth)} · ${usdc(bal.usdc)}</b></p>`)
+    lines.push(`<p class="pf-line"><span>Wallet</span><b>${eth(bal.eth)} · ${usdc(bal.usdc)}</b></p>`)
     const short = []
     if (needs.feeTxs && bal.eth < FEE_ETH) short.push(`a little ${NET} ETH for fees (${needs.feeTxs} confirmation${needs.feeTxs === 1 ? '' : 's'} in your wallet)`)
     if (needs.usdc && bal.usdc < needs.usdc) short.push(`${usdc(needs.usdc - bal.usdc)} more ${SYM} ${needs.usdcWhy || ''}`.trim())
@@ -540,7 +542,7 @@
   function fillOrders(s) {
     const want = BigInt(Math.round(Number($('[data-input="amount"]')?.value || 0) * 1e6))
     const orders = s.desks
-      .filter((d) => BigInt(d.availableUsdc ?? 0) > 0n && !same(d.owner, me()) && (same(d.owner, chosen) || !unticked.has(d.owner.toLowerCase())))
+      .filter((d) => BigInt(d.availableUsdc ?? 0) > 0n && !isMine(d.owner) && (same(d.owner, chosen) || !unticked.has(d.owner.toLowerCase())))
       .sort((a, b) => (same(b.owner, chosen) - same(a.owner, chosen)) || a.aprBps - b.aprBps || (BigInt(b.availableUsdc) > BigInt(a.availableUsdc) ? 1 : -1))
     const pieces = []
     let left = want
@@ -629,7 +631,7 @@
     set('m-desks', String(s.desks.length))
     set('m-available', usdc(sum(s.desks.map((d) => d.availableUsdc))))
     $$('[data-sort]').forEach((h) => (h.dataset.dir = h.dataset.sort === sortKey ? (sortDir > 0 ? 'up' : 'down') : ''))
-    const open = s.desks.filter((d) => BigInt(d.availableUsdc ?? 0) > 0n && !same(d.owner, me()))
+    const open = s.desks.filter((d) => BigInt(d.availableUsdc ?? 0) > 0n && !isMine(d.owner))
     const best = open.length ? Math.min(...open.map((d) => d.aprBps)) : null
     const rows = $('[data-app="market-rows"]')
     if (rows) {
@@ -637,7 +639,7 @@
         ? [...shown]
             .sort((a, b) => sortDir * (SORTS[sortKey](a) - SORTS[sortKey](b)) || a.aprBps - b.aprBps)
             .map((d) => {
-              const own = same(d.owner, me())
+              const own = isMine(d.owner)
               const empty = BigInt(d.availableUsdc ?? 0) <= 0n
               const r = recordOf(s, d.owner)
               const record = r.repaid || r.liquidated ? `${r.repaid} repaid · ${r.liquidated} liquidated` : 'no loans closed yet'
@@ -646,7 +648,7 @@
               const guards = `<span class="guards"><span class="gchip">${dot(ga)}${esc(gName(s, d.guardianA))}</span><span class="gchip">${dot(gb)}${esc(gName(s, d.guardianB))}</span></span>`
               const isBest = !own && !empty && d.aprBps === best && open.length > 1
               return `<div class="tr${isBest ? ' tr-best' : ''}" role="row">
-                <span class="td-desk" role="cell">${avatar(d)}<span><b>${esc(d.name)}${d.instant ? ` <i class="pill pill-instant pill-sm">${BOLT}Instant</i>` : ''}${own ? ' <i class="pill pill-sm">Yours</i>' : ''}</b><em>${record}</em>${guards}</span></span>
+                <span class="td-desk" role="cell">${avatar(d)}<span><b>${esc(d.name)}${d.instant ? ` <i class="pill pill-instant pill-sm">${BOLT}Instant</i>` : ''}${d.private ? ' <i class="pill pill-sm">Private</i>' : ''}${own ? ' <i class="pill pill-sm">Yours</i>' : ''}</b><em>${record}</em>${guards}</span></span>
                 <span role="cell" data-label="Rate"><b class="num-accent rate4">${pct(d.aprBps)}</b>${isBest ? '<em class="best4">Best rate</em>' : '<em>APR</em>'}</span>
                 <span role="cell" data-label="Term"><b>${term(d.termSeconds)}</b></span>
                 <span role="cell" data-label="LTV start / liq."><b>${pct(d.startLtvBps)} / ${pct(d.liquidationLtvBps)}</b></span>
@@ -687,7 +689,7 @@
         set('q4-max', zecIn > 0 ? usdc(max) : DASH)
         set('q4-how', zecIn > 0 ? `${pct(bestDesk.aprBps)} APR from ${bestDesk.name}, ${term(bestDesk.termSeconds)}, at ${pct(bestDesk.startLtvBps)} of $${price.toFixed(2)} per ZEC${raw > cap ? '. Capped by what the desk has left.' : '.'}` : 'Type how much ZEC you would lock.')
         if (go) {
-          go.disabled = !(zecIn > 0 && max > 0n) || same(bestDesk.owner, me())
+          go.disabled = !(zecIn > 0 && max > 0n) || isMine(bestDesk.owner)
           go.dataset.desk = bestDesk.owner
           go.dataset.amount = trim((Number(max) / 1e6).toFixed(2))
           const label = $('span', go)
@@ -716,16 +718,18 @@
     const f = fillOrders(s)
     const takes = new Map(f.pieces.map((p) => [p.desk.owner.toLowerCase(), p.take]))
     const lead = s.desks.find((d) => same(d.owner, chosen))
-    $$('[data-app="borrow-dialog"] [data-app="desk-name"]').forEach((el) => (el.textContent = lead ? lead.name : 'the desks'))
+    $$('[data-app="borrow-dialog"] [data-app="desk-name"]').forEach((el) => (el.textContent = lead ? lead.name : 'Best available desks'))
     {
       const fq = fillOrders(s)
       const owedAll = sum(fq.pieces.map((p) => quoteOf(s, p.desk, p.take).owed))
       const principal = sum(fq.pieces.map((p) => p.take))
       // To repay later the wallet needs the interest on top of what it receives.
-      preflight('preflight-borrow', { feeTxs: fq.pieces.length, usdc: owedAll - principal, usdcWhy: 'by the time you repay (the interest)' })
+      // A private borrow needs no ETH: the one-time key only signs and the relayer submits.
+      const priv = !!s.chain?.vault && !!$('[data-input="private"]')?.checked
+      preflight('preflight-borrow', { feeTxs: priv ? 0 : fq.pieces.length, usdc: owedAll - principal, usdcWhy: 'by the time you repay (the interest)' })
     }
     fillRows.markup = [...s.desks]
-      .filter((d) => !same(d.owner, me()) && BigInt(d.availableUsdc ?? 0) > 0n)
+      .filter((d) => !isMine(d.owner) && BigInt(d.availableUsdc ?? 0) > 0n)
       .sort((a, b) => (same(b.owner, chosen) - same(a.owner, chosen)) || a.aprBps - b.aprBps)
       .map((d) => {
         const k = d.owner.toLowerCase()
@@ -747,6 +751,8 @@
   }
 
   document.addEventListener('change', (e) => {
+    if (e.target.matches('[data-app="borrow-dialog"] [data-input="private"]') && last) return paintMarkets(last)
+    if (e.target.matches('[data-input="private-desk"]') && last) return lendTitle()
     const t = e.target.closest('[data-tick]')
     if (!t) return
     t.checked ? unticked.delete(t.dataset.tick) : unticked.add(t.dataset.tick)
@@ -783,6 +789,16 @@
     $$('dialog[open]').forEach((d) => d.close())
   })
 
+  /* The Lend dialog's title: updating your order, or posting a new (private) one. A private
+     desk is its own desk, so switching Private on next to a public order posts a new one. */
+  let lendFrom = null
+  function lendTitle() {
+    const mine = myDesk(last)
+    const priv = !!last?.chain?.vault && !!$('[data-input="private-desk"]')?.checked
+    const updating = mine && isPrivateDesk(mine.owner) === priv
+    set('lend-title', updating ? `Update ${mine.name}` : priv ? 'Post a private order' : lendFrom ? `Lend on ${lendFrom.name}'s terms` : 'Post an order')
+  }
+
   /* Borrow and Lend open their dialogs from a row; Lend starts from that desk's terms, or
      from your own order when you have one. */
   document.addEventListener('click', async (e) => {
@@ -804,7 +820,8 @@
       const from = last.desks.find((d) => same(d.owner, open.dataset.desk))
       const base = mine || from || { ...last.testnet.deskTerms, name: '' }
       fillDeskForm({ ...base, name: mine ? mine.name : '', maxUsdc: mine ? mine.maxUsdc : base.maxUsdc, lenderZec: mine ? mine.lenderZec : '' })
-      set('lend-title', mine ? `Update ${mine.name}` : from ? `Lend on ${from.name}'s terms` : 'Post an order')
+      lendFrom = from
+      lendTitle()
       openDialog('[data-app="lend-dialog"]')
     }
   })
@@ -1199,7 +1216,7 @@
       $$('[data-sym]').forEach((el) => { if (el.textContent !== SYM) el.textContent = SYM })
       $$('[data-net]').forEach((el) => { if (el.textContent !== NETS) el.textContent = NETS })
       $$('[data-net-full]').forEach((el) => { if (el.textContent !== NET) el.textContent = NET })
-      set('q-chain', `${NET} \u00b7 ${SYM}`)
+      set('q-chain', `${SYM} on ${NETS}`)
       $$('[data-app="priv-wrap"]').forEach((el) => (el.hidden = !s.chain.vault))
       paintPrivate(s).catch(() => undefined)
       paintChainSwitch(s)
@@ -1222,7 +1239,8 @@
     if (view === 'desk') paintDesk(s, focus)
     if ($('[data-app="lend-dialog"]')?.open) {
       const max = BigInt(Math.round(Number($('[data-desk="max"]')?.value || 0) * 1e6))
-      preflight('preflight-lend', { feeTxs: 1, usdc: max + 2n * ((max * 10n) / 10000n), usdcWhy: 'to lend the whole order (with the guardians\u2019 fees)' })
+      if (s.chain?.vault && $('[data-input="private-desk"]')?.checked) html('preflight-lend', '<p class="pf-line"><span>Lends from</span><b>your private balance</b></p>')
+      else preflight('preflight-lend', { feeTxs: 1, usdc: max + 2n * ((max * 10n) / 10000n), usdcWhy: 'to lend the whole order (with the guardians\u2019 fees)' })
     }
 
     // Cards about loans wait until there is one.
@@ -1385,12 +1403,18 @@
 
   /* The vault's public record (every note commitment, every spent nullifier), from the API. */
   const vaultRecord = async () => (await apiFetch('vault')).json()
+  // Encrypted backups of this wallet's notes, kept on the site (only ciphertext).
+  if (W?.setNoteStore) W.setNoteStore({ put: (b) => post('notes/put', b), get: (b) => post('notes/get', b) })
   /* The payout notes of this wallet's private loans, by loan. */
   const myPrivateLoans = (s) => s.loans.filter((l) => l.shielded && isMine(l.offer.borrower)).map((l) => ({ id: l.id, principal: l.offer.principalUsdc }))
+  /* What each private desk's loan may have paid back into the vault (one note per loan). */
+  const myPrivateLending = (s) => s.loans
+    .filter((l) => l.privateLender && isMine(l.offer.lender) && ['Repaid', 'Liquidated', 'Cancelled'].includes(l.onchain.status))
+    .map((l) => ({ id: l.id, amounts: l.onchain.status === 'Repaid' ? [l.offer.owedUsdc] : l.onchain.status === 'Liquidated' ? [l.onchain.repaid] : [l.fundingUsdc] }))
   let privCache = { at: 0, notes: null }
   async function privateBalance(s, force = false) {
     if (!force && privCache.notes && Date.now() - privCache.at < 15_000) return privCache.notes
-    const notes = await W.privateNotes(await vaultRecord(), myPrivateLoans(s))
+    const notes = await W.privateNotes(await vaultRecord(), myPrivateLoans(s), myPrivateLending(s))
     privCache = { at: Date.now(), notes }
     return notes
   }
@@ -1520,7 +1544,20 @@
     'borrower/repay-all': async () => repayLoans(basketLoans(last, myBasket(last)).filter((l) => l.onchain.status === 'Active')),
     'lender/desk': async () => {
       if (!me()) return connectWallet()
-      const owner = me()
+      // A private desk: one of this wallet's one-time keys owns it (an existing private desk
+      // keeps its key; a new one takes a fresh key).
+      const privateDesk = !!last.chain.vault && !!$('[data-input="private-desk"]')?.checked
+      const current = myDesk(last)
+      let owner = me()
+      if (privateDesk) {
+        if (current && isPrivateDesk(current.owner)) owner = current.owner
+        else {
+          confirm('Sign once to open your private keys')
+          const used = [...last.desks.map((d) => d.owner), ...last.baskets.map((b) => b.borrower), ...last.loans.map((l) => l.offer.borrower)]
+          owner = (await W.nextOneTime(used)).address
+          addPrivAddr(owner)
+        }
+      }
       const val = (k) => $(`[data-desk="${k}"]`).value.trim()
       const bps = (k) => Math.round(Number(val(k)) * 100)
       const terms = {
@@ -1537,20 +1574,32 @@
         guardianA: val('guardian-a'),
         guardianB: val('guardian-b'),
         at: Date.now(),
+        ...(privateDesk ? { private: 1 } : {}),
       }
       if (!new RegExp(`^${last.chain.zecPrefix}`).test(terms.lenderZec)) throw new Error(`Paste your shielded ZEC address (${last.chain.zecPrefix}… on this chain)`)
       if (!terms.guardianA || !terms.guardianB || same(terms.guardianA, terms.guardianB)) throw new Error('Pick two different guardians')
-      confirm('Sign your desk’s terms')
-      if (bal && bal.usdc < BigInt(terms.maxUsdc)) toast(`Posted orders lend from this wallet: it holds ${usdc(bal.usdc)} of the ${usdc(terms.maxUsdc)} you offer.`)
-      const sig = await W.sign(W.message('desk', owner, terms, 'desk'))
+      let sig
+      if (privateDesk) {
+        sig = await W.signAs(owner, W.message('desk', owner, terms, 'desk'))
+      } else {
+        confirm('Sign your desk’s terms')
+        if (bal && bal.usdc < BigInt(terms.maxUsdc)) toast(`Posted orders lend from this wallet: it holds ${usdc(bal.usdc)} of the ${usdc(terms.maxUsdc)} you offer.`)
+        sig = await W.sign(W.message('desk', owner, terms, 'desk'))
+      }
       await post('lender/desk', { terms, sig })
       $('[data-app="lend-dialog"]')?.close()
-      toast('Order posted. Borrowers see it on Markets')
+      toast(privateDesk ? 'Private order posted. Fund loans from your private balance (Portfolio)' : 'Order posted. Borrowers see it on Markets')
     },
     'lender/approve': async (btn) => {
       const b = last.baskets.find((x) => x.id === btn.dataset.basket)
       const p = b?.pieces[Number(btn.dataset.piece)]
       if (!p) throw new Error('That request is gone')
+      if (isPrivateDesk(p.desk)) {
+        // The desk's one-time key signs; the relayer posts the offer.
+        const { id, offer, terms } = await post('lender/prepare', { lender: p.desk, basket: b.id, piece: p.index })
+        await post('relay/offer', await W.offerPrivate(id, p.desk, terms, W.message('offer', id, offer)))
+        return void toast('Terms posted privately')
+      }
       const lender = needWallet(p.desk, 'your desk')
       const { id, offer, terms } = await post('lender/prepare', { lender, basket: b.id, piece: p.index })
       confirm(`Post the terms on ${NETS}`)
@@ -1562,6 +1611,17 @@
     },
     'lender/fund': async (btn) => {
       const l = loanById(last, btn.dataset.loan)
+      if (l.privateLender) {
+        // From the private balance: a proof made here; the vault pays the loan contract.
+        const need = BigInt(l.fundingUsdc)
+        const notes = await privateBalance(last, true)
+        const have = sum(notes.map((n) => n.amount))
+        if (have < need) throw new Error(`Funding takes ${usdc(need)} (with the guardians' fees); your private balance holds ${usdc(have)}. Add ${usdc(need - have)} to it first.`)
+        toast('Proving the funding in your browser\u2026')
+        await post('relay/transact', await W.proveSpend(await vaultRecord(), notes, need, { loanId: l.id, fund: true }))
+        await post('lender/funded', { loan: l.id })
+        return void toast(`Funded privately. The ${SYM} waits in the contract until the guardians see the ZEC`)
+      }
       needWallet(l.offer.lender, 'the desk')
       confirm(`Approve the ${SYM}, then fund`)
       await W.fund(l.id)
@@ -1577,6 +1637,10 @@
     },
     'lender/cancel': async (btn) => {
       const l = loanById(last, btn.dataset.loan)
+      if (l.privateLender) {
+        await post('relay/cancel', { loan: l.id, by: 'lender', cancel: await W.cancelPrivate(l.id, l.offer.lender) })
+        return void toast('Cancelled. The funding is back in your private balance; any ZEC sent goes back to the borrower')
+      }
       needWallet(l.offer.lender, 'the desk')
       confirm(`Cancel the loan on ${NETS}`)
       await W.cancel(l.id)

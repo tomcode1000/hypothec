@@ -27,7 +27,13 @@ Built for the ZECATHON, Private Markets track.
 7. **Guardians** are software run by independent operators. They sign only what the
    published rules allow, and log every decision with its evidence.
 
-Nothing on Zcash shows an owner, an amount, or that a loan exists. The Base contract
+8. **Private on the dollar side too (Base or Robinhood Chain).** With Private on, the
+   borrower and the desk are one-time keys whose transactions a relayer sends; the dollars
+   move as private notes in a shielded vault (Zcash's note and nullifier design, with a
+   Groth16 proof made in the browser). The loan chain shows an anonymous loan, never whose
+   wallet borrowed or lent.
+
+Nothing on Zcash shows an owner, an amount, or that a loan exists. The loan contract
 stores nothing about the collateral.
 
 ## Repository
@@ -35,7 +41,8 @@ stores nothing about the collateral.
 | Folder | What is there |
 |---|---|
 | `core/` | `hypothec-party`: one party's FROST key share of a vault, as an HTTP service (Rust, on [zafe](https://github.com/zafe-cash/zafe)) |
-| `usdc/` | `HypothecLoans.sol`, the loan contract on Base Sepolia, and its tests |
+| `usdc/` | `HypothecLoans.sol`, the loan contract (Base Sepolia, Robinhood Chain testnet), `HypothecVault.sol`, the shielded dollar vault, and their tests |
+| `shield/` | the spend circuit (circom, Groth16) and the note library the browser and tests share |
 | `services/` | the loanbook, the **guardians' rules engine**, the price feed, desk agents, the web API |
 | `web/` | the website: Markets, Portfolio, Guardians, Docs |
 | `e2e/` | scripts that bring the whole system up (local chain or testnet) |

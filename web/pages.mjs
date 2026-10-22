@@ -341,6 +341,20 @@ const borrowerSteps = () => [
       ${btn('Borrow again', { href: 'markets.html', tone: 'ghost', wide: true })}</div>`),
 ]
 
+/** The private balance (the shielded dollar vault): on both sides of Portfolio. */
+const privCard = () => `<section class="card priv4" data-app="private-card" hidden>
+    <div class="priv4-head">
+      <div><span class="label-caps">Private balance</span><b class="priv4-amt" data-app="priv-balance">—</b><em data-app="priv-note">Dollars in the shielded vault: only you can see or spend them.</em></div>
+      <button class="btn btn-primary" type="button" data-act="private/open" data-app="priv-open"><span>Open private balance</span></button>
+    </div>
+    <div class="priv4-actions" data-app="priv-actions" hidden>
+      <label class="field"><span>Add from your wallet</span><div class="amount"><input data-input="priv-add" type="number" min="0" step="0.1" inputmode="decimal"/><b data-sym>USDC</b></div></label>
+      <button class="btn btn-ghost" type="button" data-act="private/add"><span>Add</span></button>
+      <label class="field"><span>Withdraw to any address</span><div class="amount"><input data-input="priv-out" type="number" min="0" step="0.1" inputmode="decimal"/><b data-sym>USDC</b></div><input data-input="priv-to" type="text" spellcheck="false" placeholder="0x… a fresh address is most private"/></label>
+      <button class="btn btn-ghost" type="button" data-act="private/withdraw"><span>Withdraw</span></button>
+    </div>
+  </section>`
+
 const loan = () =>
   appPage({
     title: 'Portfolio',
@@ -363,18 +377,7 @@ const loan = () =>
     <div class="scene-play">${borrowerSteps().join('')}</div>
     <div class="scene-vault" data-when="loans"><p class="kicker">Vaults</p>${vaultArt()}</div>
   </section>
-  <section class="card priv4" data-app="private-card" hidden>
-    <div class="priv4-head">
-      <div><span class="label-caps">Private balance</span><b class="priv4-amt" data-app="priv-balance">—</b><em data-app="priv-note">Dollars in the shielded vault: only you can see or spend them.</em></div>
-      <button class="btn btn-primary" type="button" data-act="private/open" data-app="priv-open"><span>Open private balance</span></button>
-    </div>
-    <div class="priv4-actions" data-app="priv-actions" hidden>
-      <label class="field"><span>Add from your wallet</span><div class="amount"><input data-input="priv-add" type="number" min="0" step="0.1" inputmode="decimal"/><b data-sym>USDC</b></div></label>
-      <button class="btn btn-ghost" type="button" data-act="private/add"><span>Add</span></button>
-      <label class="field"><span>Withdraw to any address</span><div class="amount"><input data-input="priv-out" type="number" min="0" step="0.1" inputmode="decimal"/><b data-sym>USDC</b></div><input data-input="priv-to" type="text" spellcheck="false" placeholder="0x… a fresh address is most private"/></label>
-      <button class="btn btn-ghost" type="button" data-act="private/withdraw"><span>Withdraw</span></button>
-    </div>
-  </section>
+  ${privCard()}
   <div class="pair" data-when="loans">
     ${card(`${cardHead('Health', '', loanPick())}<div class="pad">${health()}</div>`)}
     ${card(`${cardHead('Guardians', '', '<a class="more" href="log.html?as=borrower">Log</a>')}<div class="pad"><div class="guardians">${guardian('A')}${guardian('B')}</div></div>`)}
@@ -397,6 +400,7 @@ const desk = () =>
     <div><span class="kicker">Your order</span><b data-app="my-desk-status">Connect a wallet</b></div>
     <button class="btn btn-ghost" type="button" data-open="lend" data-app="edit-order"><span>Post an order</span></button>
   </section>
+  ${privCard()}
   <section class="card table-card">
     <div class="table-top"><span class="kicker" data-app="req-count">Requests</span></div>
     <div class="table table-req" role="table">

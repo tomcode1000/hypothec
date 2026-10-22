@@ -12,7 +12,8 @@
 //   ts-node src/api.ts          -> http://127.0.0.1:7910
 // Needs e2e/stack.sh and serve.ts running.
 import { createServer, type IncomingMessage, type ServerResponse } from "http";
-import { existsSync, readFileSync, statSync } from "fs";
+import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "fs";
+import { homedir } from "os";
 import { extname, join, normalize, sep } from "path";
 import { getAddress, isAddress, type Hex } from "viem";
 import { baseAs, chainNow, getLoan, isOverdue, usdcBalance, vaultRecord } from "./base";
@@ -54,7 +55,7 @@ interface Basket {
 }
 const baskets: Basket[] = [];
 /// Offers a desk's wallet is about to post and sign, by loan id.
-const prepared = new Map<Hex, { offer: Offer; basket: string; piece: number }>();
+const prepared = new Map<Hex, { offer: Offer; terms: Record<string, string>; basket: string; piece: number }>();
 
 /*
   Zcash-side work (making a vault, locking, releasing, liquidating) runs as jobs, one at a
@@ -117,6 +118,26 @@ type Price = Awaited<ReturnType<typeof zecPrice>> | { error: string };
 /// gas, from its own wallet (or the test borrower's, in a wallet file without one).
 const RELAYER = () => baseAs(hasWallet("relayer") ? "relayer" : "borrower");
 
+/*
+  Encrypted backups of private notes (deposits and change, which the seed alone cannot find
+  again). The browser encrypts each note with a key from the wallet's signature and files it
+  under a tag from the same signature; this server sees only the tag and ciphertext. Losing
+  the browser's storage then loses nothing: signing again restores every note.
+*/
+const NOTES_FILE = join(homedir(), ".hypothec", `notes-${CHAIN.key}.json`);
+const noteStore: Record<string, string[]> = existsSync(NOTES_FILE) ? JSON.parse(readFileSync(NOTES_FILE, "utf8")) : {};
+function putNote(tag: string, blob: string) {
+  if (!/^0x[0-9a-f]{64}$/.test(tag)) throw new Error("bad tag");
+  if (!/^[A-Za-z0-9+/=]{16,2048}$/.test(blob)) throw new Error("bad note");
+  const list = (noteStore[tag] ??= []);
+  if (list.includes(blob)) return { kept: list.length };
+  if (list.length >= 1000) throw new Error("too many notes under this tag");
+  list.push(blob);
+  mkdirSync(join(homedir(), ".hypothec"), { recursive: true });
+  writeFileSync(NOTES_FILE, JSON.stringify(noteStore));
+  return { kept: list.length };
+}
+
 /// The guardians accept a lock once it has this many confirmations (the wallet's spendable rule).
 const LOCK_CONFIRMATIONS = 10;
 const firstSeen = new Map<string, number>();
@@ -171,6 +192,10 @@ async function loanView(doc: LoanDoc, desks: DeskTerms[], price: Price) {
     ended: ended(doc, onchain.statusName, vaultZat),
     /// Paid out into the shielded vault (a private borrow).
     shielded: !!VAULT && same(onchain.payoutTo, VAULT),
+    /// Lent by a private desk: what comes back to it is paid into the vault as its note.
+    privateLender: same(onchain.repayTo, LOANS),
+    /// What funding takes: the principal and both guardians' 0.10% fees.
+    fundingUsdc: (BigInt(doc.offer.principalUsdc) + 2n * ((BigInt(doc.offer.principalUsdc) * 10n) / 10_000n)).toString(),
     vaultZat,
     spendableZat: balance?.spendable_zat ?? 0,
     confirmations,
@@ -201,7 +226,10 @@ async function state() {
       const asked = baskets.flatMap((b) => b.pieces).filter((p) => !p.loan && same(p.desk, t.owner)).reduce((a, p) => a + p.principalUsdc, 0n);
       let remaining = BigInt(t.maxUsdc) - lent - asked;
       if (remaining < 0n) remaining = 0n;
-      const availableUsdc = wallet === null ? remaining : wallet < remaining ? wallet : remaining;
+      // A private desk lends from the vault, where its balance cannot be seen: its order counts
+      // at face value (if it cannot fund, the loan never reaches the lock and no ZEC moves).
+      const isPrivate = Number((t as { private?: number }).private) === 1;
+      const availableUsdc = wallet === null || isPrivate ? remaining : wallet < remaining ? wallet : remaining;
       return { ...t, walletUsdc: wallet, lentUsdc: lent, askedUsdc: asked, availableUsdc, instant: AGENTS && testLenderOf(t.owner) !== null };
     }),
   );
@@ -464,8 +492,16 @@ async function act(path: string, body: Record<string, unknown>) {
       await loanbook.accept(doc.id, { offerDigest: accept.offerDigest, borrowerZec: accept.borrowerZec }, body.sig as Hex);
       return run("keys", [doc.id], () => keySetup(doc.id));
     }
+    case "/api/notes/put":
+      return putNote(String(body.tag ?? ""), String(body.blob ?? ""));
+    case "/api/notes/get": {
+      const tag = String(body.tag ?? "");
+      if (!/^0x[0-9a-f]{64}$/.test(tag)) throw new Error("bad tag");
+      return { blobs: noteStore[tag] ?? [] };
+    }
     case "/api/relay/transact": {
-      // A spend from the vault, proved in the browser: to a wallet, or repaying a loan.
+      // A spend from the vault, proved in the browser: to a wallet, repaying a loan, or a
+      // private desk funding its loan.
       const t = body as { a: string[]; b: string[][]; c: string[]; root: string; publicAmount: string; nullifiers: string[]; outCommitment: string; ext: { recipient: Hex; loanId: Hex; relayer: Hex; fee: string } };
       if (BigInt(t.ext.fee) !== 0n) throw new Error("this relayer takes no fee");
       const big = (x: string) => BigInt(x);
@@ -541,14 +577,23 @@ async function act(path: string, body: Record<string, unknown>) {
       const desk = deskOf((await loanbook.desks()).map((d) => d.terms), piece.desk);
       if (!desk) throw new Error("that desk is no longer listed");
       const built = await buildOffer(piece.principalUsdc, desk, b.borrower);
-      prepared.set(built.id, { offer: built.offer, basket: b.id, piece: Number(body.piece) });
+      prepared.set(built.id, { offer: built.offer, terms: built.terms, basket: b.id, piece: Number(body.piece) });
       return built;
     }
+    case "/api/relay/offer":
     case "/api/lender/offer": {
-      // The desk's wallet has posted the offer on Base; record its signed entry.
+      // The desk's wallet has posted the offer on Base; record its signed entry. A private
+      // desk's one-time key signed it instead, and the relayer posts it here.
       const id = String(body.id ?? "") as Hex;
       const p = prepared.get(id);
       if (!p) throw new Error("no prepared offer with that id");
+      if (path === "/api/relay/offer") {
+        const n = body.note as { owner: string; blinding: string; deadline: string; v: number; r: Hex; s: Hex };
+        const t = p.terms;
+        await RELAYER().loans("offerShielded", [id, {
+          ...t, principal: BigInt(t.principal), owed: BigInt(t.owed), dueAt: BigInt(t.dueAt), lockBy: BigInt(t.lockBy),
+        }, BigInt(n.owner), BigInt(n.blinding), BigInt(n.deadline), n.v, n.r, n.s]);
+      }
       const o = p.offer;
       const onchain = await onchainStatus(id, "Offered");
       if (!same(onchain.lender, o.lender) || !same(onchain.borrower, o.borrower) || onchain.principal !== BigInt(o.principalUsdc) || onchain.owed !== BigInt(o.owedUsdc)) {
@@ -565,6 +610,16 @@ async function act(path: string, body: Record<string, unknown>) {
       await onchainStatus(doc.id, "Funded");
       await loanbook.event(doc.id, { actor: "lender", kind: "funded", data: { status: "Funded" } });
       return { funded: true };
+    }
+    case "/api/relay/cancel": {
+      // A one-time key (a private desk, or a private borrower before funding) cancels by
+      // signature; the relayer submits it.
+      const doc = await loanDoc(body);
+      const n = body.cancel as { deadline: string; v: number; r: Hex; s: Hex };
+      await RELAYER().loans("cancelSigned", [doc.id, BigInt(n.deadline), n.v, n.r, n.s]);
+      await onchainStatus(doc.id, "Cancelled");
+      await loanbook.event(doc.id, { actor: body.by === "borrower" ? "borrower" : "lender", kind: "cancelled", data: { status: "Cancelled" } });
+      return { cancelled: true };
     }
     case "/api/lender/cancelled": {
       const doc = await loanDoc(body);

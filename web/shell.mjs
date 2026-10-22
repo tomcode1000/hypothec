@@ -239,25 +239,41 @@ const dialogHead = (id, title) => `<div class="card-head"><h2 class="h2" id="${i
  * Borrow, opened from a market row. The row's desk fills first; the other orders, ticked,
  * cover what it cannot (D16). Each piece is its own loan.
  */
-const borrowDialog = () => `<dialog class="dialog dialog-wide" data-app="borrow-dialog" aria-labelledby="borrow-title"><div class="bezel">
-  ${dialogHead('borrow-title', 'Borrow from <span data-app="desk-name">a desk</span>')}
-  <div class="pad">
-    <label class="field"><span>Amount</span><div class="amount"><input data-input="amount" type="number" min="0.1" step="0.1" value="5" inputmode="decimal"/><b data-sym>USDC</b></div></label>
-    <div class="dest">
-      <p class="dest-to">Paid to <b data-app="dest-wallet">your connected wallet</b>. <button class="linkish" type="button" data-toggle="dest">Change</button></p>
-      <label class="field" data-app="dest-field" hidden><span>Send the <span data-sym>USDC</span> to</span><input data-input="usdc-address" type="text" spellcheck="false" placeholder="0x… any address on this chain"/></label>
+const borrowDialog = () => `<dialog class="dialog dialog-ticket" data-app="borrow-dialog" aria-labelledby="borrow-title"><div class="bezel">
+  <div class="tk-head">
+    <div><span class="label-caps">Borrow · <span data-net>Base</span></span><h2 class="h2" id="borrow-title"><span data-app="desk-name">A desk</span></h2></div>
+    <button class="x" type="button" data-close aria-label="Close">${ic('x')}</button>
+  </div>
+  <div class="tk-body">
+    <div class="tk-main">
+      <label class="field tk-amount"><span>Amount</span><div class="amount"><input data-input="amount" type="number" min="0.1" step="0.1" value="5" inputmode="decimal"/><b data-sym>USDC</b></div></label>
+      <div class="tk-block">
+        <div class="tk-sub"><span class="label-caps">Filled by</span><span class="tk-note" data-app="fill-note"></span></div>
+        <div class="mini" role="table"><div class="mini-row mini-head" role="row"><span></span><span>Desk</span><span>Rate</span><span>Available</span><span>You take</span></div><div data-app="fill-rows"></div></div>
+      </div>
+      <label class="privsw" data-app="priv-wrap" hidden>
+        <input type="checkbox" data-input="private" checked/>
+        <span class="privsw-text"><b>Private</b><em>A one-time key borrows; your wallet never appears on <span data-net>Base</span>.</em></span>
+        <span class="privsw-knob" aria-hidden="true"></span>
+      </label>
+      <div class="dest">
+        <p class="dest-to">Paid to <b data-app="dest-wallet">your connected wallet</b>. <button class="linkish" type="button" data-toggle="dest">Change</button></p>
+        <label class="field" data-app="dest-field" hidden><span>Send the <span data-sym>USDC</span> to</span><input data-input="usdc-address" type="text" spellcheck="false" placeholder="0x… any address on this chain"/></label>
+      </div>
     </div>
-    <div class="mini" role="table"><div class="mini-row mini-head" role="row"><span></span><span>Desk</span><span>Rate</span><span>Available</span><span>You take</span></div><div data-app="fill-rows"></div></div>
-    <p class="fine" data-app="fill-note"></p>
-    <div class="sheet">${line('Loan chain', 'q-chain')}${line('You lock', 'q-collateral')}${line('You owe in all', 'q-owed')}${line('Rate', 'q-apr')}${line('Due', 'q-due')}</div>
-    <p class="fine">Sized at each desk's start LTV and the one-hour average price your guardians use, <b data-app="sizing-price">—</b>.</p>
-    <label class="privsw" data-app="priv-wrap" hidden>
-      <input type="checkbox" data-input="private" checked/>
-      <span class="privsw-knob" aria-hidden="true"></span>
-      <span class="privsw-text"><b>Private borrow</b><em>Your wallet never appears on <span data-net>Base</span>. A one-time key borrows; the dollars arrive in your private balance.</em></span>
-    </label>
-    <div class="preflight" data-app="preflight-borrow"></div>
-    ${btn('Request', { act: 'borrower/request', wide: true, key: 'ask-btn' })}
+    <aside class="tk-sheet">
+      <span class="label-caps">Term sheet</span>
+      <div class="tk-lock"><span>You lock</span><b data-app="q-collateral">—</b><em>shielded, in a 3-of-4 vault</em></div>
+      <dl class="tk-terms">
+        <div><dt>You repay</dt><dd data-app="q-owed">—</dd></div>
+        <div><dt>Rate</dt><dd data-app="q-apr">—</dd></div>
+        <div><dt>Due</dt><dd data-app="q-due">—</dd></div>
+        <div><dt>Paid on</dt><dd data-app="q-chain">—</dd></div>
+      </dl>
+      <p class="tk-fine">Sized at each desk's start LTV, ZEC at <b data-app="sizing-price">—</b> (the guardians' one-hour average).</p>
+      <div class="preflight" data-app="preflight-borrow"></div>
+      ${btn('Request', { act: 'borrower/request', wide: true, key: 'ask-btn' })}
+    </aside>
   </div>
 </div></dialog>`
 
@@ -285,6 +301,11 @@ const lendDialog = () => `<dialog class="dialog dialog-wide" data-app="lend-dial
       <label class="field"><span>Guardian B</span><select data-desk="guardian-b"></select></label>
     </div>
     <p class="fine">Two independent operators from the operator list, online now. Each earns <b data-app="guardian-fee">0.10%</b> of a loan's principal, paid from your funding when it confirms the lock, the same whether the loan is repaid or liquidated.</p>
+    <label class="privsw privsw-row" data-app="priv-wrap" hidden>
+      <input type="checkbox" data-input="private-desk" checked/>
+      <span class="privsw-text"><b>Private desk</b><em>A one-time key runs the desk and funds from your private balance; what borrowers repay comes back into it. Your wallet never appears on <span data-net>Base</span>.</em></span>
+      <span class="privsw-knob" aria-hidden="true"></span>
+    </label>
     <div class="preflight" data-app="preflight-lend"></div>
     ${btn('Sign and post', { act: 'lender/desk', wide: true, key: 'desk-publish' })}
   </div>

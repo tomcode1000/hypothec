@@ -155,4 +155,99 @@ describe("HypothecVault", function () {
     const sig = parseSignature(await impostor.signMessage({ message: { raw: digest } }));
     await expect((await s.as(s.relayer).loans).write.acceptShielded([id, 7n, 9n, now + 3600n, Number(sig.v), sig.r, sig.s])).to.be.rejectedWith("NotAllowed");
   });
+  // A private desk's offer: its one-time key signs, the relayer submits.
+  async function privateOffer(s: Awaited<ReturnType<typeof setup>>, id: Hex, desk: ReturnType<typeof privateKeyToAccount>, borrower: Hex, note: { owner: bigint; blinding: bigint }) {
+    const now = BigInt(await time.latest());
+    const terms = { borrower, refereeA: s.refA.account.address, refereeB: s.refB.account.address, repayTo: desk.address, principal: USDC(5), owed: USDC(5.15), dueAt: now + 90n * DAY, lockBy: now + DAY };
+    const deadline = now + 3600n;
+    const digest = await s.loans.read.shieldedOfferDigest([id, terms, note.owner, note.blinding, deadline]);
+    const sig = parseSignature(await desk.signMessage({ message: { raw: digest } }));
+    await (await s.as(s.relayer).loans).write.offerShielded([id, terms, note.owner, note.blinding, deadline, Number(sig.v), sig.r, sig.s]);
+  }
+
+  it("private on both sides: a private desk funds from the vault and is repaid into it", async () => {
+    const s = await setup();
+    const id = keccak256(toHex("private-both"));
+    const deskKey = privateKeyToAccount(generatePrivateKey());
+    const borrowerKey = privateKeyToAccount(generatePrivateKey());
+    const dseed = s.notes.seedFrom("0xseed-desk");
+    const bseed = s.notes.seedFrom("0xseed-borrower-2");
+
+    // The desk shields its lending money first (public: someone put 10 in the vault).
+    const bank = s.notes.noteKeys(dseed, "bank");
+    await (await s.as(s.lender).usdc).write.approve([s.vault.address, USDC(10)]);
+    await (await s.as(s.lender).vault).write.deposit([USDC(10), bank.owner, bank.blinding]);
+
+    const back = s.notes.noteKeys(dseed, `lend:${id}`);
+    await privateOffer(s, id, deskKey, borrowerKey.address, back);
+    const l0 = await s.loans.read.getLoan([id]);
+    expect(getAddress(l0.lender)).to.equal(getAddress(deskKey.address));
+    expect(getAddress(l0.repayTo)).to.equal(getAddress(s.loans.address));
+    expect(await s.loans.read.privateLender([id])).to.equal(true);
+
+    const now = BigInt(await time.latest());
+    const payout = s.notes.noteKeys(bseed, 0);
+    const adig = await s.loans.read.shieldedAcceptDigest([id, payout.owner, payout.blinding, now + 3600n]);
+    const asig = parseSignature(await borrowerKey.signMessage({ message: { raw: adig } }));
+    await (await s.as(s.relayer).loans).write.acceptShielded([id, payout.owner, payout.blinding, now + 3600n, Number(asig.v), asig.r, asig.s]);
+
+    // Funding: a proven spend of the desk's note, straight into the loan contract.
+    const funding = await s.loans.read.fundingAmount([id]);
+    await s.spend([{ amount: USDC(10), secret: bank.secret, blinding: bank.blinding }], funding, s.notes.noteKeys(dseed, "change-1"), { recipient: s.loans.address, loanId: id, relayer: ZERO, fee: 0n });
+    expect((await s.loans.read.getLoan([id])).status).to.equal(3); // Funded
+    await (await s.as(s.refA).loans).write.confirmLock([id]);
+    await (await s.as(s.refB).loans).write.confirmLock([id]);
+
+    // The borrower repays from the vault (payout + an extra note); the desk's note appears.
+    const extra = s.notes.noteKeys(bseed, 1);
+    await (await s.as(s.outsider).usdc).write.approve([s.vault.address, USDC(1)]);
+    await (await s.as(s.outsider).vault).write.deposit([USDC(1), extra.owner, extra.blinding]);
+    await s.spend(
+      [{ amount: USDC(5), secret: payout.secret, blinding: payout.blinding }, { amount: USDC(1), secret: extra.secret, blinding: extra.blinding }],
+      USDC(5.15), s.notes.noteKeys(bseed, 2), { recipient: ZERO, loanId: id, relayer: ZERO, fee: 0n },
+    );
+    expect((await s.loans.read.getLoan([id])).status).to.equal(5); // Repaid
+    const t = await s.tree();
+    expect(t.indexOf(s.notes.commitmentOf({ amount: USDC(5.15), ...back }))).to.be.greaterThan(-1);
+    expect(await s.usdc.read.balanceOf([s.loans.address])).to.equal(0n);
+
+    // The desk takes its 5.15 out to a fresh wallet: neither side's wallet ever touched the loan.
+    await s.spend([{ amount: USDC(5.15), secret: back.secret, blinding: back.blinding }], USDC(5.15), s.notes.noteKeys(dseed, "change-2"), { recipient: s.recipient.account.address, loanId: NO_LOAN, relayer: ZERO, fee: 0n });
+    expect(await s.usdc.read.balanceOf([s.recipient.account.address])).to.equal(USDC(5.15));
+  });
+
+  it("a private desk cancels by signature after the lock deadline; the funding comes back as its note", async () => {
+    const s = await setup();
+    const id = keccak256(toHex("private-cancel"));
+    const deskKey = privateKeyToAccount(generatePrivateKey());
+    const dseed = s.notes.seedFrom("0xseed-desk-2");
+    const bank = s.notes.noteKeys(dseed, "bank");
+    await (await s.as(s.lender).usdc).write.approve([s.vault.address, USDC(10)]);
+    await (await s.as(s.lender).vault).write.deposit([USDC(10), bank.owner, bank.blinding]);
+    const back = s.notes.noteKeys(dseed, `lend:${id}`);
+    await privateOffer(s, id, deskKey, s.outsider.account.address, back);
+    await (await s.as(s.outsider).loans).write.accept([id, s.outsider.account.address]);
+    const funding = await s.loans.read.fundingAmount([id]);
+    await s.spend([{ amount: USDC(10), secret: bank.secret, blinding: bank.blinding }], funding, s.notes.noteKeys(dseed, "c"), { recipient: s.loans.address, loanId: id, relayer: ZERO, fee: 0n });
+
+    await time.increase(Number(DAY) + 10);
+    const deadline = BigInt(await time.latest()) + 3600n;
+    const impostor = privateKeyToAccount(generatePrivateKey());
+    const bad = parseSignature(await impostor.signMessage({ message: { raw: await s.loans.read.cancelDigest([id, deadline]) } }));
+    await expect((await s.as(s.relayer).loans).write.cancelSigned([id, deadline, Number(bad.v), bad.r, bad.s])).to.be.rejectedWith("NotAllowed");
+    const sig = parseSignature(await deskKey.signMessage({ message: { raw: await s.loans.read.cancelDigest([id, deadline]) } }));
+    await (await s.as(s.relayer).loans).write.cancelSigned([id, deadline, Number(sig.v), sig.r, sig.s]);
+    expect((await s.loans.read.getLoan([id])).status).to.equal(7); // Cancelled
+    const t = await s.tree();
+    expect(t.indexOf(s.notes.commitmentOf({ amount: funding, ...back }))).to.be.greaterThan(-1);
+  });
+
+  it("only the vault funds a private desk's loan", async () => {
+    const s = await setup();
+    const id = keccak256(toHex("private-direct"));
+    const deskKey = privateKeyToAccount(generatePrivateKey());
+    await privateOffer(s, id, deskKey, s.outsider.account.address, s.notes.noteKeys(s.notes.seedFrom("0xd3"), "x"));
+    await (await s.as(s.outsider).loans).write.accept([id, s.outsider.account.address]);
+    await expect((await s.as(s.outsider).loans).write.fundFromVault([id])).to.be.rejectedWith("NotAllowed");
+  });
 });

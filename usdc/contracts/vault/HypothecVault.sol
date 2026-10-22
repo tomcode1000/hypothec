@@ -10,12 +10,13 @@ pragma solidity 0.8.24;
 /// spent twice. Who holds what, and which deposit a spend came from, stay private.
 ///
 /// In: `deposit` (anyone, from a wallet; and the loan contract, paying a shielded loan out).
-/// Out: `transact`, with a proof: release an amount to a wallet, or repay a loan with it, and
-/// keep the rest as a new note. A relayer may submit it, so the spender's wallet never shows.
+/// Out: `transact`, with a proof: release an amount to a wallet, repay a loan with it, or fund
+/// a private desk's loan with it, and keep the rest as a new note. A relayer may submit it, so the spender's wallet never shows.
 interface IERC20V {
     function transfer(address to, uint256 amount) external returns (bool);
     function transferFrom(address from, address to, uint256 amount) external returns (bool);
     function approve(address spender, uint256 amount) external returns (bool);
+    function allowance(address owner, address spender) external view returns (uint256);
     function balanceOf(address who) external view returns (uint256);
 }
 
@@ -33,6 +34,7 @@ interface ISpendVerifier {
 
 interface ILoansRepay {
     function repay(bytes32 id, uint256 amount) external;
+    function fundFromVault(bytes32 id) external;
 }
 
 contract HypothecVault {
@@ -111,7 +113,8 @@ contract HypothecVault {
     }
 
     /// Spends one or two notes with a proof: `publicAmount` leaves the vault (less the relayer's
-    /// fee) to `ext.recipient`, or repays loan `ext.loanId`; the rest is the new note.
+    /// fee) to `ext.recipient`; or, with `ext.loanId`, repays that loan (recipient zero) or funds
+    /// it (recipient the loan contract: a private desk funding its loan). The rest is the new note.
     function transact(
         Proof calldata p,
         uint256 root,
@@ -137,11 +140,14 @@ contract HypothecVault {
         if (ext.fee > 0 && !token.transfer(ext.relayer, ext.fee)) revert TransferFailed();
         if (amount == 0) return;
         if (ext.loanId != bytes32(0)) {
-            // Repay that loan with exactly `amount`: the loan contract pulls it from here.
-            uint256 before = token.balanceOf(address(this));
+            // Repay or fund that loan with exactly `amount`: the loan contract pulls it from
+            // here, and must use the whole approval (a repayment may come straight back in as
+            // a private desk's note, so the balance is no measure).
+            if (ext.recipient != address(0) && ext.recipient != loans) revert BadInput();
             if (!token.approve(loans, amount)) revert TransferFailed();
-            ILoansRepay(loans).repay(ext.loanId, amount);
-            if (before - token.balanceOf(address(this)) != amount) revert BadInput();
+            if (ext.recipient == loans) ILoansRepay(loans).fundFromVault(ext.loanId);
+            else ILoansRepay(loans).repay(ext.loanId, amount);
+            if (token.allowance(address(this), loans) != 0) revert BadInput();
             emit Released(loans, ext.loanId, amount);
         } else {
             if (ext.recipient == address(0)) revert BadInput();

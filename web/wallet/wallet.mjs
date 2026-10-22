@@ -281,6 +281,43 @@ async function oneTimeFor(address) {
 
 /** A loan's payout note keys: one fresh note per loan, found again from the loan id. */
 const payoutKeys = (s, loanId) => noteKeys(s, `loan:${loanId}`)
+/** A private desk's note for what a loan pays back to it. */
+const lendKeys = (s, loanId) => noteKeys(s, `lend:${loanId}`)
+
+/** Signs a loanbook entry with one of this seed's one-time keys (a private desk's terms). */
+export async function signAs(address, text) {
+  return (await oneTimeFor(address)).signMessage({ message: text })
+}
+
+/**
+ * A private desk offers: its one-time key signs the offer the contract checks (the relayer
+ * submits it) and the loanbook entry. Returns what /api/relay/offer takes.
+ */
+export async function offerPrivate(loanId, lender, t, entryText) {
+  const s = await privateSeed()
+  const key = await oneTimeFor(lender)
+  const n = lendKeys(s, loanId)
+  const deadline = BigInt(Math.floor(Date.now() / 1000) + 3600)
+  const terms = {
+    borrower: t.borrower, refereeA: t.refereeA, refereeB: t.refereeB, repayTo: t.repayTo,
+    principal: BigInt(t.principal), owed: BigInt(t.owed), dueAt: BigInt(t.dueAt), lockBy: BigInt(t.lockBy),
+  }
+  const digest = await pub.readContract({ address: cfg.loans, abi: LOANS_ABI, functionName: 'shieldedOfferDigest', args: [loanId, terms, n.owner, n.blinding, deadline] })
+  const sig = parseSignature(await key.signMessage({ message: { raw: digest } }))
+  return {
+    id: loanId, sig: await key.signMessage({ message: entryText }),
+    note: { owner: n.owner.toString(), blinding: n.blinding.toString(), deadline: deadline.toString(), v: Number(sig.v), r: sig.r, s: sig.s },
+  }
+}
+
+/** A one-time key's cancel, signed for the relayer to submit (/api/relay/cancel). */
+export async function cancelPrivate(loanId, who) {
+  const key = await oneTimeFor(who)
+  const deadline = BigInt(Math.floor(Date.now() / 1000) + 3600)
+  const digest = await pub.readContract({ address: cfg.loans, abi: LOANS_ABI, functionName: 'cancelDigest', args: [loanId, deadline] })
+  const sig = parseSignature(await key.signMessage({ message: { raw: digest } }))
+  return { deadline: deadline.toString(), v: Number(sig.v), r: sig.r, s: sig.s }
+}
 
 /**
  * Accepts a shielded loan with its one-time key: the signature the contract checks (the
@@ -306,20 +343,61 @@ const notesKey = () => `hypothec-notes:${cfg?.id}:${account}`
 const keptNotes = () => {
   try { return JSON.parse(localStorage.getItem(notesKey()) || '[]').map((n) => ({ amount: BigInt(n.amount), secret: BigInt(n.secret), blinding: BigInt(n.blinding) })) } catch (e) { return [] }
 }
-const keepNote = (n) => {
+const keepNote = async (n) => {
   try {
     const all = JSON.parse(localStorage.getItem(notesKey()) || '[]')
     all.push({ amount: n.amount.toString(), secret: n.secret.toString(), blinding: n.blinding.toString() })
     localStorage.setItem(notesKey(), JSON.stringify(all))
   } catch (e) {}
+  // And an encrypted copy on the site, so clearing this browser loses nothing.
+  if (noteStore) await backupNote(n).catch(() => undefined)
+}
+
+/* The encrypted note backup: the site stores ciphertext under a tag; both the tag and the
+   AES key come from the seed, so only this wallet's signature can find or read them. */
+let noteStore = null
+/** Where backups go: { put({tag, blob}), get({tag}) -> {blobs} } (the app posts to the API). */
+export const setNoteStore = (store) => (noteStore = store)
+const noteTag = (s) => keccak256(toHex(`hypothec-notes-tag:${s}`))
+async function noteKey(s) {
+  const raw = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`hypothec-notes-key:${s}`))
+  return crypto.subtle.importKey('raw', raw, 'AES-GCM', false, ['encrypt', 'decrypt'])
+}
+const b64 = (bytes) => btoa(String.fromCharCode(...bytes))
+const unb64 = (str) => Uint8Array.from(atob(str), (c) => c.charCodeAt(0))
+async function backupNote(n) {
+  const s = await privateSeed()
+  const iv = crypto.getRandomValues(new Uint8Array(12))
+  const text = new TextEncoder().encode(JSON.stringify({ amount: n.amount.toString(), secret: n.secret.toString(), blinding: n.blinding.toString() }))
+  const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, await noteKey(s), text))
+  await noteStore.put({ tag: noteTag(s), blob: b64(new Uint8Array([...iv, ...ct])) })
+}
+async function restoredNotes() {
+  if (!noteStore) return []
+  const s = await privateSeed()
+  const key = await noteKey(s)
+  const { blobs } = await noteStore.get({ tag: noteTag(s) })
+  const out = []
+  for (const blob of blobs) {
+    try {
+      const bytes = unb64(blob)
+      const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: bytes.slice(0, 12) }, key, bytes.slice(12))
+      const n = JSON.parse(new TextDecoder().decode(pt))
+      out.push({ amount: BigInt(n.amount), secret: BigInt(n.secret), blinding: BigInt(n.blinding) })
+    } catch (e) {}
+  }
+  return out
 }
 
 /** The unspent notes of this wallet's private balance, given the vault's record and its loans. */
-export async function privateNotes(record, loans) {
+export async function privateNotes(record, loans, lent = []) {
   const s = await privateSeed()
   const leaves = record.leaves.map((x) => BigInt(x))
   const spent = new Set(record.nullifiers.map(String))
-  const cands = [...loans.map((l) => ({ amount: BigInt(l.principal), ...payoutKeys(s, l.id) })), ...keptNotes()]
+  // A private desk's loan pays one note back: its amount is one of the loan's candidates.
+  const back = lent.flatMap((l) => l.amounts.map((a) => ({ amount: BigInt(a), ...lendKeys(s, l.id) })))
+  const restored = await restoredNotes().catch(() => [])
+  const cands = [...loans.map((l) => ({ amount: BigInt(l.principal), ...payoutKeys(s, l.id) })), ...back, ...keptNotes(), ...restored]
   const out = []
   const seen = new Set()
   for (const n of cands) {
@@ -336,7 +414,7 @@ export async function privateNotes(record, loans) {
 export async function shieldIn(amount) {
   const s = await privateSeed()
   const n = noteKeys(s, `deposit:${Date.now()}:${Math.random()}`)
-  keepNote({ amount: BigInt(amount), secret: n.secret, blinding: n.blinding })
+  await keepNote({ amount: BigInt(amount), secret: n.secret, blinding: n.blinding })
   await call(cfg.usdc, erc20Abi, 'approve', [cfg.vault, BigInt(amount)])
   return call(cfg.vault, vaultArtifact.abi, 'deposit', [BigInt(amount), n.owner, n.blinding])
 }
@@ -358,8 +436,10 @@ function loadSnark() {
  * Proves a spend of up to two notes releasing `amount`: to `recipient`, or repaying `loanId`.
  * Returns the body for /api/relay/transact. The change note is kept before anything is sent.
  */
-export async function proveSpend(record, notes, amount, { recipient = '0x0000000000000000000000000000000000000000', loanId = '0x' + '00'.repeat(32) } = {}) {
+export async function proveSpend(record, notes, amount, { recipient = '0x0000000000000000000000000000000000000000', loanId = '0x' + '00'.repeat(32), fund = false } = {}) {
   const s = await privateSeed()
+  // Funding a private desk's loan: the vault pays the loan contract, which checks the amount.
+  if (fund) recipient = cfg.loans
   const want = BigInt(amount)
   const ins = [...notes].sort((a, b) => (b.amount > a.amount ? 1 : -1)).slice(0, 2)
   if (ins.reduce((a, n) => a + n.amount, 0n) < want) throw new Error('Your private balance is too small for this in one step.')
@@ -371,7 +451,7 @@ export async function proveSpend(record, notes, amount, { recipient = '0x0000000
   const snarkjs = await loadSnark()
   const { proof, publicSignals } = await snarkjs.groth16.fullProve(input, 'assets/zk/spend.wasm', 'assets/zk/spend.zkey')
   const p = toSolidity(proof, publicSignals)
-  if (out.amount > 0n) keepNote(out)
+  if (out.amount > 0n) await keepNote(out)
   const str = (x) => x.toString()
   return {
     a: p.a.map(str), b: p.b.map((r) => r.map(str)), c: p.c.map(str),

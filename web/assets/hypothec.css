@@ -6168,3 +6168,270 @@ body::after {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* ------------------------------------------------------------ the ticket -- */
+/* Borrow as an order ticket: the order on the left (amount, which desks fill it, private or
+   not), the term sheet on the right (what you lock and owe, the wallet check, the button).
+   One screen tall on a laptop; stacked on a phone. */
+.dialog-ticket {
+  width: min(880px, calc(100vw - 32px));
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+}
+
+.tk-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 22px 14px;
+  border-bottom: 1px solid var(--hair);
+}
+
+.tk-head > div {
+  display: grid;
+  gap: 4px;
+}
+
+.tk-head .h2 {
+  margin: 0;
+  font-size: 22px;
+  letter-spacing: -0.02em;
+}
+
+.tk-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+}
+
+.tk-main {
+  display: grid;
+  align-content: start;
+  gap: 16px;
+  padding: 18px 22px 22px;
+}
+
+.tk-main .field {
+  margin: 0;
+}
+
+.tk-amount .amount {
+  height: 56px;
+}
+
+.tk-amount .amount input {
+  font-family: var(--display-face);
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+.tk-block {
+  display: grid;
+  gap: 8px;
+}
+
+.tk-sub {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.tk-note {
+  font-size: 12px;
+  color: var(--ink-3);
+  text-align: right;
+}
+
+.tk-main .mini {
+  margin: 0;
+}
+
+.tk-main .mini-row {
+  padding-top: 9px;
+  padding-bottom: 9px;
+  font-size: 13px;
+}
+
+/* Private: one row, the switch at its end. */
+:is(.tk-main .privsw, .privsw-row) {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  margin: 0;
+  padding: 11px 14px;
+  border: 1px solid var(--hair);
+  background: var(--surface);
+}
+
+:is(.tk-main .privsw, .privsw-row):has(input:checked) {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--hair));
+  background: color-mix(in srgb, var(--accent) 6%, var(--surface));
+}
+
+:is(.tk-main, .privsw-row) .privsw-text {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: baseline;
+  column-gap: 10px;
+}
+
+:is(.tk-main, .privsw-row) .privsw-text em {
+  font-size: 12.5px;
+}
+
+.tk-main .dest {
+  margin: 0;
+}
+
+.tk-sheet {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  padding: 18px 22px 22px;
+  border-left: 1px solid var(--hair);
+  background: color-mix(in srgb, var(--well) 55%, var(--surface));
+}
+
+.tk-lock {
+  display: grid;
+  gap: 2px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--hair);
+}
+
+.tk-lock span {
+  font-size: 12.5px;
+  color: var(--ink-3);
+}
+
+.tk-lock b {
+  font-family: var(--display-face);
+  font-size: 30px;
+  font-weight: 650;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.tk-lock em {
+  font-style: normal;
+  font-size: 12px;
+  color: var(--ink-4);
+}
+
+.tk-terms {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px 16px;
+  margin: 0;
+}
+
+.tk-terms div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.tk-terms dt {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+}
+
+.tk-terms dd {
+  margin: 0;
+  font-size: 14.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.tk-fine {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ink-4);
+}
+
+.tk-fine b {
+  color: var(--ink-3);
+  font-weight: 600;
+}
+
+.tk-sheet .preflight {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--hair);
+  background: var(--surface);
+  font-size: 12.5px;
+}
+
+.tk-sheet .pf-ok {
+  margin-top: 6px;
+  font-size: 12px;
+}
+
+.tk-sheet .btn {
+  margin-top: 2px;
+}
+
+@media (max-width: 760px) {
+  .tk-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .tk-sheet {
+    border-left: 0;
+    border-top: 1px solid var(--hair);
+  }
+
+  .tk-main .privsw-text {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Phones: the chain switch takes its own line under the wallet, so the bar fits. */
+@media (max-width: 560px) {
+  .topnav-end {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+  .topnav-end .chainsw {
+    order: 3;
+  }
+  .topnav .wallet-btn {
+    min-height: 40px;
+    padding: 0 12px;
+    white-space: nowrap;
+  }
+  .topnav .theme-icon {
+    width: 40px;
+    height: 40px;
+  }
+}
+
+/* The ticket's switch sits after its text. */
+:is(.tk-main .privsw, .privsw-row) input:checked ~ .privsw-knob {
+  background: var(--accent);
+}
+
+:is(.tk-main .privsw, .privsw-row) input:checked ~ .privsw-knob::after {
+  transform: translateX(16px);
+}
+
+:is(.tk-main .privsw, .privsw-row) input:focus-visible ~ .privsw-knob {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.tk-terms div {
+  align-content: start;
+}
+
+.privsw-row {
+  margin-top: 14px;
+}

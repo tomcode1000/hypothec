@@ -41,6 +41,12 @@ interface IERC20Permit {
 /// (anyone, a relayer, may submit it, so the key needs no gas and the borrower's wallet never
 /// appears), and the principal is paid into the shielded vault as a private note. Repaying
 /// can come from inside the vault (anyone may repay), so nothing links the loan to a person.
+///
+/// Private desks (offerShielded): the lender is a one-time key too. It signs its offer and
+/// its cancel (a relayer submits them), funds from the vault (fundFromVault, called by the
+/// vault on a proven spend), and what the borrower repays is held here and paid into the vault
+/// as the lender's private note once the loan ends: the amount owed when Repaid, what was
+/// repaid when Liquidated, the funding when Cancelled after funding. One note per loan.
 contract HypothecLoans {
     enum Status {
         None,
@@ -95,6 +101,8 @@ contract HypothecLoans {
     address public immutable vault;
     /// A shielded loan's payout note: its owner and blinding (the amount is the principal).
     mapping(bytes32 => uint256[2]) private payoutNote;
+    /// A private desk's note for what comes back to it (its owner and blinding).
+    mapping(bytes32 => uint256[2]) private lenderNote;
 
     /// What each guardian earns per loan: 0.10% of the principal, paid by the lender with
     /// the funding and handed over when both guardians confirm the lock. The same whether
@@ -125,16 +133,41 @@ contract HypothecLoans {
     }
 
     function offer(bytes32 id, Terms calldata t) external {
+        _offer(id, t, msg.sender);
+    }
+
+    /// What a private desk's one-time key signs (EIP-191) to offer a loan.
+    function shieldedOfferDigest(bytes32 id, Terms calldata t, uint256 noteOwner, uint256 noteBlinding, uint256 deadline) public view returns (bytes32) {
+        return keccak256(abi.encode("Hypothec shielded offer", block.chainid, address(this), id, t, noteOwner, noteBlinding, deadline));
+    }
+
+    /// A private desk offers by signature (anyone may submit it). What comes back to the desk
+    /// is held here and paid into the vault as the note (noteOwner, noteBlinding).
+    function offerShielded(bytes32 id, Terms calldata t, uint256 noteOwner, uint256 noteBlinding, uint256 deadline, uint8 v, bytes32 r, bytes32 s) external {
+        if (vault == address(0) || block.timestamp > deadline || noteOwner == 0) revert BadTerms();
+        address signer = _signer(shieldedOfferDigest(id, t, noteOwner, noteBlinding, deadline), v, r, s);
+        Terms memory m = t;
+        m.repayTo = address(this);
+        _offer(id, m, signer);
+        lenderNote[id] = [noteOwner, noteBlinding];
+    }
+
+    /// True when the loan's lender is a private desk.
+    function privateLender(bytes32 id) public view returns (bool) {
+        return lenderNote[id][0] != 0;
+    }
+
+    function _offer(bytes32 id, Terms memory t, address lender) private {
         if (loans[id].status != Status.None) revert WrongStatus(loans[id].status);
         if (
-            t.borrower == address(0) || t.refereeA == address(0) || t.refereeB == address(0)
-                || t.repayTo == address(0) || t.refereeA == t.refereeB || t.borrower == msg.sender
-                || t.refereeA == msg.sender || t.refereeB == msg.sender || t.refereeA == t.borrower
+            lender == address(0) || t.borrower == address(0) || t.refereeA == address(0) || t.refereeB == address(0)
+                || t.repayTo == address(0) || t.refereeA == t.refereeB || t.borrower == lender
+                || t.refereeA == lender || t.refereeB == lender || t.refereeA == t.borrower
                 || t.refereeB == t.borrower || t.principal == 0 || t.owed < t.principal
                 || t.dueAt <= block.timestamp || t.lockBy <= block.timestamp || t.lockBy >= t.dueAt
         ) revert BadTerms();
         Loan storage l = loans[id];
-        l.lender = msg.sender;
+        l.lender = lender;
         l.borrower = t.borrower;
         l.refereeA = t.refereeA;
         l.refereeB = t.refereeB;
@@ -144,7 +177,7 @@ contract HypothecLoans {
         l.dueAt = t.dueAt;
         l.lockBy = t.lockBy;
         l.status = Status.Offered;
-        emit Offered(id, msg.sender, t.borrower, t.principal, t.owed, t.dueAt);
+        emit Offered(id, lender, t.borrower, t.principal, t.owed, t.dueAt);
     }
 
     function getLoan(bytes32 id) external view returns (Loan memory) {
@@ -174,9 +207,7 @@ contract HypothecLoans {
         Loan storage l = loans[id];
         if (l.status != Status.Offered) revert WrongStatus(l.status);
         if (vault == address(0) || block.timestamp > deadline || noteOwner == 0) revert BadTerms();
-        bytes32 digest = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", shieldedAcceptDigest(id, noteOwner, noteBlinding, deadline)));
-        address signer = ecrecover(digest, v, r, s);
-        if (signer == address(0) || signer != l.borrower) revert NotAllowed();
+        if (_signer(shieldedAcceptDigest(id, noteOwner, noteBlinding, deadline), v, r, s) != l.borrower) revert NotAllowed();
         l.payoutTo = vault;
         payoutNote[id] = [noteOwner, noteBlinding];
         l.status = Status.Accepted;
@@ -201,6 +232,18 @@ contract HypothecLoans {
         if (msg.sender != l.lender) revert NotAllowed();
         l.status = Status.Funded;
         _pull(msg.sender, address(this), fundingAmount(id));
+        emit Funded(id);
+    }
+
+    /// A private desk's loan funded from the vault: the vault calls this on a proven spend
+    /// (approving fundingAmount first), so no wallet of the desk appears.
+    function fundFromVault(bytes32 id) external {
+        Loan storage l = loans[id];
+        if (msg.sender != vault || vault == address(0)) revert NotAllowed();
+        if (l.status != Status.Accepted) revert WrongStatus(l.status);
+        if (!privateLender(id)) revert NotAllowed();
+        l.status = Status.Funded;
+        _pull(vault, address(this), fundingAmount(id));
         emit Funded(id);
     }
 
@@ -243,7 +286,10 @@ contract HypothecLoans {
         if (l.repaid == l.owed) l.status = Status.Repaid;
         _pull(msg.sender, l.repayTo, amount);
         emit Repayment(id, msg.sender, amount, l.repaid);
-        if (l.status == Status.Repaid) emit Repaid(id);
+        if (l.status == Status.Repaid) {
+            if (privateLender(id)) _toLenderNote(id, l.owed);
+            emit Repaid(id);
+        }
     }
 
     /// Repays several loans in full in one transaction: what is left on each goes to that
@@ -259,6 +305,7 @@ contract HypothecLoans {
             l.repaid = l.owed;
             l.status = Status.Repaid;
             _pull(msg.sender, l.repayTo, left);
+            if (privateLender(ids[i])) _toLenderNote(ids[i], l.owed);
             emit Repayment(ids[i], msg.sender, left, l.repaid);
             emit Repaid(ids[i]);
         }
@@ -286,22 +333,40 @@ contract HypothecLoans {
         emit LiquidationConfirmed(id, msg.sender);
         if (l.liqA && l.liqB) {
             l.status = Status.Liquidated;
+            // A private desk gets back, privately, whatever was repaid before liquidating.
+            if (privateLender(id) && l.repaid > 0) _toLenderNote(id, l.repaid);
             emit Liquidated(id);
         }
     }
 
     function cancel(bytes32 id) external {
+        _cancel(id, msg.sender);
+    }
+
+    /// What a one-time key (private desk or private borrower) signs (EIP-191) to cancel.
+    function cancelDigest(bytes32 id, uint256 deadline) public view returns (bytes32) {
+        return keccak256(abi.encode("Hypothec cancel", block.chainid, address(this), id, deadline));
+    }
+
+    /// cancel, by signature: anyone may submit it, so a one-time key needs no gas.
+    function cancelSigned(bytes32 id, uint256 deadline, uint8 v, bytes32 r, bytes32 s) external {
+        if (block.timestamp > deadline) revert BadTerms();
+        _cancel(id, _signer(cancelDigest(id, deadline), v, r, s));
+    }
+
+    function _cancel(bytes32 id, address who) private {
         Loan storage l = loans[id];
         if (l.status == Status.Offered || l.status == Status.Accepted) {
-            if (msg.sender != l.lender && msg.sender != l.borrower) revert NotAllowed();
+            if (who != l.lender && who != l.borrower) revert NotAllowed();
             l.status = Status.Cancelled;
             emit Cancelled(id, 0);
         } else if (l.status == Status.Funded) {
-            if (msg.sender != l.lender) revert NotAllowed();
+            if (who != l.lender) revert NotAllowed();
             if (block.timestamp <= l.lockBy) revert WrongStatus(l.status);
             l.status = Status.Cancelled;
             uint256 back = fundingAmount(id);
-            _send(l.lender, back);
+            if (privateLender(id)) _toLenderNote(id, back);
+            else _send(l.lender, back);
             emit Cancelled(id, back);
         } else {
             revert WrongStatus(l.status);
@@ -313,6 +378,18 @@ contract HypothecLoans {
     function isOverdue(bytes32 id) external view returns (bool) {
         Loan storage l = loans[id];
         return l.status == Status.Active && block.timestamp > l.dueAt;
+    }
+
+    /// Pays `amount`, held here, into the vault as the private desk's note for this loan.
+    function _toLenderNote(bytes32 id, uint256 amount) private {
+        if (!usdc.approve(vault, amount)) revert TransferFailed();
+        IShieldVault(vault).deposit(amount, lenderNote[id][0], lenderNote[id][1]);
+    }
+
+    /// The signer of an EIP-191 signature over `digest` (never the zero address).
+    function _signer(bytes32 digest, uint8 v, bytes32 r, bytes32 s) private pure returns (address signer) {
+        signer = ecrecover(keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", digest)), v, r, s);
+        if (signer == address(0)) revert NotAllowed();
     }
 
     function _pull(address from, address to, uint256 amount) private {

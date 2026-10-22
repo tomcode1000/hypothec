@@ -3,15 +3,19 @@
   "chainId": 46630,
   "usdc": "0xdc821cdb076a1b2c5d1ada9a242f33b97d34f0a5",
   "stable": "tUSDC",
-  "HypothecLoans": "0x43b661d58233ee0688c225c0bdae18ba32a4f6f6",
-  "deployTx": "0x170e91bd65c665248cd43b6452522397654df1c93943b56dd4424641b2ea04a8",
-  "HypothecVault": "0x6c4a5afa0a0e530cface627429bddf9c8f454383",
-  "vaultBlock": 140780261,
-  "SpendVerifier": "0x13c40a30683e1224f4fabc0ac343ff4eecd7cfcf",
-  "Poseidon2": "0x9fb48f6f1adb560c6b6f5eccdd8bee99f71e2151",
-  "Poseidon3": "0x7dc7ae549609dc117978917b98576c8f43f2b121",
-  "deployedAt": "2026-10-22T14:00:19.821Z",
+  "HypothecLoans": "0xc4ca788b06e3c238647bf55d9595f8a9bdf349f3",
+  "deployTx": "0x10a6727ee145c5b0dc1cbde861e26f972900f18662e6099b0b473e0306e7d436",
+  "HypothecVault": "0x735fbd1b4c5bd23e138c335e49f29f86240c4069",
+  "vaultBlock": 140792131,
+  "SpendVerifier": "0xfe49f35d7b3885f3e791ca3e462440a6f61049b8",
+  "Poseidon2": "0x9c82a67512f4899d5e5edc0c28bb2e8b3185cb10",
+  "Poseidon3": "0x587b2b472f79582dc0d16b6e6f7cbef3c55d05c4",
+  "deployedAt": "2026-10-22T14:33:54.859Z",
   "previous": [
+    {
+      "HypothecLoans": "0x43b661d58233ee0688c225c0bdae18ba32a4f6f6",
+      "deployTx": "0x170e91bd65c665248cd43b6452522397654df1c93943b56dd4424641b2ea04a8"
+    },
     {
       "HypothecLoans": "0x1f783221907a1f8845f0b6a3f823ca56ed8556ea",
       "deployTx": "0x12707d656c9054307caa18bfefea69b71dcadbfa945191c29e5a2937daadd7da"

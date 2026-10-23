@@ -113,7 +113,7 @@ const idle = (s, name) => s.jobs.filter((j) => j.name === name).every((j) => j.d
 /* ---------------------------------------------------------------- flow -- */
 
 const ZEC_BACK = process.env.ZEC_BACK ?? 'utest1yjp5pvfak0ay4zds4eka35ce8sk43lr8nhqsf69nxne79evplwv952ldv2fucwu83nns3x0rxdxvr3m33s0jh67gjrqqzalwvvrf893z'
-const DESK = 'Desk P'
+const DESK = process.env.DESK ?? `Desk P${Date.now() % 10000}`
 const LENDER = 'lender2'
 const deskOwner = (s) => s.desks.find((d) => d.name === DESK)?.owner
 const deskLoans = (s) => s.loans.filter((l) => l.desk.toLowerCase() === (deskOwner(s) || '').toLowerCase())
@@ -125,7 +125,9 @@ try {
   await goto(deskPage)
   await connect()
   await click('[data-act="private/open"]')
-  await sleep(6000)
+  // Opening finds this wallet's one-time keys and restores its backed-up notes: wait for it.
+  for (let i = 0; i < 60 && !(await evaluate(`(() => { const a = document.querySelector('[data-app="priv-actions"]'); const b = document.querySelector('[data-app="priv-balance"]'); return !!a && !a.hidden && /\d/.test(b?.textContent || '') })()`)); i++) await sleep(1000)
+  await sleep(1500)
   await setValue('[data-input="priv-add"]', '3')
   await click('[data-act="private/add"]')
   for (let i = 0; i < 120 && !/is now private/.test(await toastText()); i++) await sleep(2000)

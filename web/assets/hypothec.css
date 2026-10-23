@@ -6686,3 +6686,52 @@ body::after {
     display: none;
   }
 }
+
+/* ---------------------------------------------------------- the vault plate -- */
+/* The hero panel's edge is a vault door, not a rounded card: 45-degree cut corners, a hairline
+   that follows them, and a gold bolt inside each corner. Only the edge; the content is as it was. */
+.hero-panel {
+  --cut: 30px;
+  border: 0;
+  border-radius: 0;
+  clip-path: polygon(var(--cut) 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, var(--cut) 100%, 0 calc(100% - var(--cut)), 0 var(--cut));
+  box-shadow: inset 0 0 0 1px var(--hair);
+}
+
+/* The panel clips its own shadow, so the section casts it, following the cut corners. */
+.hero4 {
+  filter: drop-shadow(0 18px 36px rgba(20, 17, 14, 0.14)) drop-shadow(0 2px 4px rgba(20, 17, 14, 0.08));
+}
+
+/* The hairline across each cut corner. */
+.hero-panel::before,
+.hero-panel::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+}
+
+.hero-panel::before {
+  background:
+    linear-gradient(135deg, transparent calc(50% - 0.75px), var(--hair) calc(50% - 0.75px), var(--hair) calc(50% + 0.75px), transparent calc(50% + 0.75px)) left top / var(--cut) var(--cut) no-repeat,
+    linear-gradient(45deg, transparent calc(50% - 0.75px), var(--hair) calc(50% - 0.75px), var(--hair) calc(50% + 0.75px), transparent calc(50% + 0.75px)) right top / var(--cut) var(--cut) no-repeat,
+    linear-gradient(45deg, transparent calc(50% - 0.75px), var(--hair) calc(50% - 0.75px), var(--hair) calc(50% + 0.75px), transparent calc(50% + 0.75px)) left bottom / var(--cut) var(--cut) no-repeat,
+    linear-gradient(135deg, transparent calc(50% - 0.75px), var(--hair) calc(50% - 0.75px), var(--hair) calc(50% + 0.75px), transparent calc(50% + 0.75px)) right bottom / var(--cut) var(--cut) no-repeat;
+}
+
+/* A gold bolt inside each corner, with a darker rim so it reads on light and dark. */
+.hero-panel::after {
+  background:
+    radial-gradient(circle, var(--accent) 0 3.4px, color-mix(in srgb, var(--accent) 50%, #231f20) 3.6px 4.8px, transparent 5px) left calc(var(--cut) - 2px) top calc(var(--cut) - 2px) / 12px 12px no-repeat,
+    radial-gradient(circle, var(--accent) 0 3.4px, color-mix(in srgb, var(--accent) 50%, #231f20) 3.6px 4.8px, transparent 5px) right calc(var(--cut) - 2px) top calc(var(--cut) - 2px) / 12px 12px no-repeat,
+    radial-gradient(circle, var(--accent) 0 3.4px, color-mix(in srgb, var(--accent) 50%, #231f20) 3.6px 4.8px, transparent 5px) left calc(var(--cut) - 2px) bottom calc(var(--cut) - 2px) / 12px 12px no-repeat,
+    radial-gradient(circle, var(--accent) 0 3.4px, color-mix(in srgb, var(--accent) 50%, #231f20) 3.6px 4.8px, transparent 5px) right calc(var(--cut) - 2px) bottom calc(var(--cut) - 2px) / 12px 12px no-repeat;
+}
+
+@media (max-width: 760px) {
+  .hero-panel {
+    --cut: 18px;
+  }
+}

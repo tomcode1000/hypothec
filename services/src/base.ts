@@ -1,7 +1,7 @@
 // The dollar side (Base Sepolia or Robinhood Chain testnet, chains.ts): the HypothecLoans
 // contract and its stablecoin, as seen by one role.
 import {
-  createPublicClient, createWalletClient, fallback, http, erc20Abi,
+  createPublicClient, createWalletClient, fallback, http, erc20Abi, parseAbi,
   type Abi, type Address, type Hash, type Hex,
 } from "viem";
 import { nonceManager, privateKeyToAccount } from "viem/accounts";
@@ -102,8 +102,20 @@ export function baseAs(role: BaseWallet) {
     },
     approveUsdc: (amount: bigint) => call(USDC, erc20Abi as Abi, "approve", [LOANS, amount]),
     signMessage: (message: string) => w.signMessage({ message }),
+    /** Test gas for a visitor's wallet (the testnet faucet). */
+    sendEth: async (to: Address, wei: bigint) => {
+      const hash = await w.sendTransaction({ to, value: wei });
+      const r = await pub.waitForTransactionReceipt({ hash });
+      if (r.status !== "success") throw new Error(`transfer failed: ${EXPLORER}/tx/${hash}`);
+      return `${EXPLORER}/tx/${hash}`;
+    },
+    /** Test dollars, where the chain's test stablecoin lets anyone mint (Robinhood testnet). */
+    mint: (to: Address, amount: bigint) => call(USDC, parseAbi(["function mint(address to, uint256 amount)"]) as Abi, "mint", [to, amount]),
   };
 }
+
+/** A wallet's balance of the chain's native coin (test ETH), in wei. */
+export const ethBalance = (a: Address) => retry(() => pub.getBalance({ address: a }));
 
 /*
   The vault's public record, for browsers: every note commitment in tree order and every spent

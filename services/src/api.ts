@@ -16,7 +16,7 @@ import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "fs
 import { homedir } from "os";
 import { extname, join, normalize, sep } from "path";
 import { getAddress, isAddress, type Hex } from "viem";
-import { baseAs, chainNow, getLoan, isOverdue, usdcBalance, vaultRecord } from "./base";
+import { baseAs, chainNow, ethBalance, getLoan, isOverdue, usdcBalance, vaultRecord } from "./base";
 import { BASE_ADDRESS, baseAddress, EXPLORER, hasWallet, LOANS, TEST_ZEC_ADDRESS, USDC, VAULT, VAULT_BLOCK } from "./config";
 import { CHAIN, CHAINS } from "./chains";
 import {
@@ -117,6 +117,43 @@ type Price = Awaited<ReturnType<typeof zecPrice>> | { error: string };
 /// The relayer: submits private borrows' signed acceptances and vault spends, paying their
 /// gas, from its own wallet (or the test borrower's, in a wallet file without one).
 const RELAYER = () => baseAs(hasWallet("relayer") ? "relayer" : "borrower");
+
+/*
+  The testnet faucet: one click gives a visitor's wallet a little test ETH for its own
+  transactions and, where the test stablecoin is mintable, 20 of it, so anyone can try every
+  flow with their own wallet. Paid by the house's spare test wallet; once per wallet every 12
+  hours, at most 40 an hour in all.
+*/
+const DRIP_ETH = 80_000_000_000_000n; // 0.00008 ETH: several transactions on a test chain
+const DRIP_USDC = 20_000_000n;
+const dripped = new Map<string, number>();
+let dripHour = { at: 0, n: 0 };
+let dripping: Promise<unknown> = Promise.resolve();
+async function drip(to: string) {
+  if (!isAddress(to)) throw new Error("connect a wallet first");
+  const key = to.toLowerCase();
+  const now = Date.now();
+  if (now - (dripped.get(key) ?? 0) < 12 * 3600_000) throw new Error("this wallet already got test funds in the last 12 hours");
+  if (now - dripHour.at > 3600_000) dripHour = { at: now, n: 0 };
+  if (dripHour.n >= 40) throw new Error("the faucet is busy; try again within the hour");
+  dripHour.n++;
+  dripped.set(key, now);
+  const source = baseAs(hasWallet("borrower") ? "borrower" : "lender");
+  // One at a time, so the house wallet's transactions never race each other.
+  const job = dripping.then(async () => {
+    const out: { eth: string | null; usdc: string | null } = { eth: null, usdc: null };
+    if ((await ethBalance(getAddress(to))) < DRIP_ETH / 2n) out.eth = await source.sendEth(getAddress(to), DRIP_ETH);
+    if (CHAIN.stable.mintable) out.usdc = await source.mint(getAddress(to), DRIP_USDC);
+    return out;
+  });
+  dripping = job.catch(() => undefined);
+  try {
+    return await job;
+  } catch (e) {
+    dripped.delete(key);
+    throw e;
+  }
+}
 
 /*
   Encrypted backups of private notes (deposits and change, which the seed alone cannot find
@@ -492,6 +529,8 @@ async function act(path: string, body: Record<string, unknown>) {
       await loanbook.accept(doc.id, { offerDigest: accept.offerDigest, borrowerZec: accept.borrowerZec }, body.sig as Hex);
       return run("keys", [doc.id], () => keySetup(doc.id));
     }
+    case "/api/faucet/drip":
+      return drip(String(body.address ?? ""));
     case "/api/notes/put":
       return putNote(String(body.tag ?? ""), String(body.blob ?? ""));
     case "/api/notes/get": {

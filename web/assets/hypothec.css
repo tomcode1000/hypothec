@@ -6735,3 +6735,14 @@ body::after {
     --cut: 18px;
   }
 }
+
+/* Markets: the testnet faucet line under the title. */
+.mk-test {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: var(--ink-3);
+}
+
+.mk-test[hidden] {
+  display: none;
+}

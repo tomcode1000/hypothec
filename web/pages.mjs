@@ -223,6 +223,7 @@ const marketsPage = () =>
     <div class="mk-intro">
       <h1 class="h1">Markets</h1>
       <p class="heading-sub">Borrow <span data-sym>USDC</span> against shielded ZEC from one desk or several. Lend on your own terms. Private on both sides.</p>
+      <p class="mk-test" data-app="faucet-line" hidden>Testnet. <button class="linkish" type="button" data-act="faucet/mint">Get test funds</button> for your wallet: gas and 20 <span data-sym>USDC</span>.</p>
       <div class="mk-stats">
         <span><em>On offer</em><b data-app="m-available">—</b></span>
         <span><em>Desks</em><b data-app="m-desks">—</b></span>

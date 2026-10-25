@@ -24,6 +24,14 @@ echo "== relay"
 ZAFE_RELAY_LISTEN=127.0.0.1:48790 ZAFE_RELAY_DB=/data/stack/relay.sqlite zafe-relay &
 wait_port 48790
 
+# A host without a disk (Render's free plan) keeps no files across restarts: the test wallet's
+# keys can come from a secret (TESTNET_ZEC_WALLET_B64, a base64 tar of its key files) and it
+# rescans the chain, so its test ZEC survives a restart.
+if [[ -n "${TESTNET_ZEC_WALLET_B64:-}" && ! -f /data/testnet-wallet/a/vault.bin ]]; then
+  printf '%s' "$TESTNET_ZEC_WALLET_B64" | base64 -d | tar xz -C /data/testnet-wallet
+  echo "test wallet keys restored"
+fi
+
 echo "== test wallet"
 SKIP_BALANCE=1 WALLET_HOME=/data/testnet-wallet RELAY_PORT=48790 RELAY_BIN=/usr/local/bin/zafe-relay \
   bash /app/e2e/testnet-wallet.sh || echo "test wallet: not ready yet (it retries on the next deploy)"

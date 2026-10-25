@@ -506,7 +506,7 @@
   }
   const eth = (wei) => `${trim((Number(wei) / 1e18).toFixed(6))} ETH`
   let MINTABLE = false
-  const faucets = () => `${MINTABLE ? `<button class="linkish" type="button" data-act="faucet/mint">Get test funds (gas and 20 ${SYM})</button>` : `<a href="${FAUCET.stable}" target="_blank" rel="noopener">${SYM} faucet</a> · <a href="${FAUCET.gas}" target="_blank" rel="noopener">ETH faucet</a>`}`
+  const faucets = () => `<a href="${FAUCET.gas}" target="_blank" rel="noopener">Get test ETH</a> · ${MINTABLE ? `<button class="linkish" type="button" data-act="faucet/mint">Mint 20 test ${SYM}</button>` : `<a href="${FAUCET.stable}" target="_blank" rel="noopener">Get test ${SYM}</a>`}`
 
   /* One check block: the wallet's figures, then what is short, if anything. */
   function preflight(key, needs) {
@@ -1240,7 +1240,11 @@
       NETS = s.chain.short || NETS
       FAUCET = s.chain.faucets || FAUCET
       MINTABLE = !!s.chain.mintable
-      $$('[data-app="faucet-line"]').forEach((el) => (el.hidden = !MINTABLE))
+      $$('[data-app="faucet-line"]').forEach((el) => (el.hidden = !FAUCET.gas))
+      $$('[data-app="faucet-gas"]').forEach((el) => { if (FAUCET.gas) el.href = FAUCET.gas })
+      $$('[data-app="faucet-stable"]').forEach((el) => {
+        el.innerHTML = MINTABLE ? `<button class="linkish" type="button" data-act="faucet/mint">mint 20 test ${SYM}</button>` : `<a href="${FAUCET.stable}" target="_blank" rel="noopener">get test ${SYM}</a>`
+      })
       $$('[data-sym]').forEach((el) => { if (el.textContent !== SYM) el.textContent = SYM })
       $$('[data-net]').forEach((el) => { if (el.textContent !== NETS) el.textContent = NETS })
       $$('[data-net-full]').forEach((el) => { if (el.textContent !== NET) el.textContent = NET })
@@ -1664,12 +1668,11 @@
     'faucet/mint': async () => {
       if (!me()) await connectWallet()
       if (!me()) return
-      // The site pays: a little test ETH for gas, and 20 test dollars where they can be minted.
-      toast('Sending test funds to your wallet…')
-      const got = await post('faucet/drip', { address: me() })
+      if (bal && bal.eth < FEE_ETH) throw new Error(`Minting needs a little test ETH for the fee. Get test ETH from the ${NETS} faucet first.`)
+      confirm(`Mint 20 test ${SYM} to your wallet`)
+      await W.mintTest(20_000_000)
       refreshBalances(true)
-      const sent = [got.eth ? 'Test ETH for gas' : null, got.usdc ? `20 test ${SYM}` : null].filter(Boolean)
-      toast(sent.length ? `${sent.join(' and ')} sent to your wallet` : 'Your wallet already has enough test funds')
+      toast(`20 test ${SYM} are in your wallet`)
     },
     'lender/cancel': async (btn) => {
       const l = loanById(last, btn.dataset.loan)

@@ -6746,3 +6746,17 @@ body::after {
 .mk-test[hidden] {
   display: none;
 }
+
+.mk-test a,
+.mk-test .linkish {
+  color: var(--ink);
+  font-weight: 500;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--ink) 35%, transparent);
+  text-underline-offset: 3px;
+}
+
+.mk-test a:hover,
+.mk-test .linkish:hover {
+  text-decoration-color: var(--accent);
+}

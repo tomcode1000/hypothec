@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1600, initial-scale=1">
+<title>Hypothec teaser</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+  html, body { margin: 0; padding: 0; background: #0b0907; }
+  .frame { position: relative; width: 1600px; height: 900px; overflow: hidden; background: #0b0907; font-family: Inter, sans-serif; }
+  svg { position: absolute; inset: 0; }
+  .title { position: absolute; left: 96px; top: 300px; color: #f3ede2; font-family: 'Instrument Serif', serif; font-size: 112px; line-height: 0.95; letter-spacing: -1.5px; }
+  .title em { color: #f2b63a; font-style: italic; }
+  .kicker { position: absolute; left: 100px; top: 252px; font-family: 'JetBrains Mono', monospace; font-size: 15px; letter-spacing: 3px; color: #9a8f7e; text-transform: uppercase; }
+  .brand { position: absolute; left: 96px; bottom: 80px; display: flex; align-items: center; gap: 14px; color: #f3ede2; font-size: 26px; font-weight: 600; letter-spacing: -0.3px; }
+  .brand .x { color: #6f665a; font-weight: 400; margin: 0 2px; }
+  .brand .z { color: #cfc6b6; font-weight: 500; }
+  .soon { position: absolute; right: 96px; bottom: 80px; display: flex; align-items: center; gap: 12px; padding: 13px 22px 13px 18px; border: 1px solid rgba(242, 182, 58, 0.35); border-radius: 999px; background: rgba(242, 182, 58, 0.07); color: #f3ede2; font-size: 19px; font-weight: 500; letter-spacing: 0.2px; }
+  .soon i { width: 9px; height: 9px; border-radius: 50%; background: #f2b63a; box-shadow: 0 0 12px #f2b63a; }
+</style>
+</head>
+<body>
+<div class="frame" id="frame">
+<svg viewBox="0 0 1600 900" width="1600" height="900" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="bg" cx="64%" cy="44%" r="70%">
+      <stop offset="0" stop-color="#2a2014"/>
+      <stop offset="0.45" stop-color="#140f0a"/>
+      <stop offset="1" stop-color="#070605"/>
+    </radialGradient>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#f2b63a" stop-opacity="0.55"/>
+      <stop offset="0.4" stop-color="#f2b63a" stop-opacity="0.14"/>
+      <stop offset="1" stop-color="#f2b63a" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="faceL" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fff4dc" stop-opacity="0.16"/>
+      <stop offset="1" stop-color="#f2b63a" stop-opacity="0.05"/>
+    </linearGradient>
+    <linearGradient id="faceR" x1="1" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff4dc" stop-opacity="0.10"/>
+      <stop offset="1" stop-color="#f2b63a" stop-opacity="0.03"/>
+    </linearGradient>
+    <linearGradient id="faceT" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff8ea" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#f2b63a" stop-opacity="0.08"/>
+    </linearGradient>
+    <linearGradient id="edge" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffe2a1"/>
+      <stop offset="1" stop-color="#b97d16"/>
+    </linearGradient>
+    <radialGradient id="coin" cx="38%" cy="32%" r="75%">
+      <stop offset="0" stop-color="#ffe7a6"/>
+      <stop offset="0.45" stop-color="#f2b63a"/>
+      <stop offset="1" stop-color="#9c6510"/>
+    </radialGradient>
+    <linearGradient id="rim" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#c88a1d"/>
+      <stop offset="1" stop-color="#6e4407"/>
+    </linearGradient>
+    <radialGradient id="shadow" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#000" stop-opacity="0.65"/>
+      <stop offset="1" stop-color="#000" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="soft" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="18"/></filter>
+    <filter id="blur2" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="2"/></filter>
+    <linearGradient id="fadeFloor" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#000" stop-opacity="0"/>
+      <stop offset="1" stop-color="#000" stop-opacity="1"/>
+    </linearGradient>
+    <mask id="floorMask"><rect x="0" y="560" width="1600" height="340" fill="url(#floorFade)"/></mask>
+    <linearGradient id="floorFade" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity="0.9"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1600" height="900" fill="url(#bg)"/>
+  <g id="floor" mask="url(#floorMask)" stroke="#f2b63a" stroke-opacity="0.12" stroke-width="1"></g>
+  <g id="dust"></g>
+  <ellipse cx="1020" cy="690" rx="300" ry="54" fill="url(#shadow)"/>
+  <circle cx="1020" cy="430" r="330" fill="url(#glow)"/>
+  <g id="ringBack"></g>
+  <g id="cube"></g>
+  <g id="ringFront"></g>
+  <g id="nodes"></g>
+  <g id="sparks"></g>
+</svg>
+<div class="kicker">Private credit · Zcash</div>
+<div class="title">Credit, kept<br><em>shielded.</em></div>
+<div class="brand">
+  <svg width="40" height="40" viewBox="0 0 40 40" style="position:static"><rect x="0.5" y="0.5" width="39" height="39" rx="9.5" fill="#f2b63a"/><circle cx="20" cy="16.5" r="5.2" fill="#1a140c"/><path d="M17.2 19.5h5.6l1.4 10.5h-8.4z" fill="#1a140c"/></svg>
+  <span>Hypothec</span><span class="x">on</span><span class="z">Zcash</span>
+</div>
+<div class="soon"><i></i>Coming soon</div>
+</div>
+<script>
+  const NS = 'http://www.w3.org/2000/svg'
+  const el = (tag, attrs, parent) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (parent) parent.appendChild(e); return e }
+  const $ = (id) => document.getElementById(id)
+  // A deterministic random, so every render is the same picture.
+  let seed = 7
+  const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647
+
+  // ---------------------------------------------------------------- the floor
+  const cx = 1020, cy = 430
+  for (let i = -14; i <= 14; i++) {
+    el('line', { x1: cx + i * 70, y1: 620, x2: cx + i * 210, y2: 900 }, $('floor'))
+  }
+  for (let j = 0; j < 9; j++) {
+    const y = 620 + Math.pow(j / 8, 1.7) * 280
+    el('line', { x1: 0, y1: y, x2: 1600, y2: y }, $('floor'))
+  }
+
+  // ---------------------------------------------------------------- the vault (an isometric glass cube)
+  const iso = (a, F) => {
+    const R = [0.866 * a, -0.5 * a], L = [-0.866 * a, -0.5 * a], U = [0, -a]
+    const add = (...v) => v.reduce((s, p) => [s[0] + p[0], s[1] + p[1]], [0, 0])
+    const P = { F, FR: add(F, R), FL: add(F, L), FRL: add(F, R, L), FU: add(F, U), FRU: add(F, R, U), FLU: add(F, L, U), FRLU: add(F, R, L, U) }
+    return P
+  }
+  const pts = (...p) => p.map((q) => q.join(',')).join(' ')
+  const A = 250
+  const F = [cx, cy + A]   // front-bottom corner; the cube's centre sits at (cx, cy)
+  const C = iso(A, F)
+  const cube = $('cube')
+  // Back edges, faint and dashed: the far corner is hidden behind the glass.
+  for (const [a, b] of [[C.FRL, C.FR], [C.FRL, C.FL], [C.FRL, C.FRLU]]) {
+    el('line', { x1: a[0], y1: a[1], x2: b[0], y2: b[1], stroke: '#f2b63a', 'stroke-opacity': 0.28, 'stroke-width': 1.2, 'stroke-dasharray': '4 6' }, cube)
+  }
+  // The coin inside, standing, with its glow.
+  const coin = el('g', {}, cube)
+  el('circle', { cx, cy: cy + 8, r: 120, fill: 'url(#glow)', opacity: 0.9 }, coin)
+  el('ellipse', { cx: cx + 7, cy: cy + 6, rx: 74, ry: 80, fill: 'url(#rim)' }, coin)
+  el('ellipse', { cx, cy, rx: 74, ry: 80, fill: 'url(#coin)' }, coin)
+  el('ellipse', { cx, cy, rx: 60, ry: 65, fill: 'none', stroke: '#fff1c9', 'stroke-opacity': 0.55, 'stroke-width': 2 }, coin)
+  // The Zcash Z: a bar, a diagonal, a bar, and the two ticks through it.
+  const z = el('g', { stroke: '#5a3a06', 'stroke-width': 11, 'stroke-linecap': 'square', fill: 'none' }, coin)
+  el('path', { d: `M${cx - 24} ${cy - 24} H${cx + 24} L${cx - 24} ${cy + 24} H${cx + 24}` }, z)
+  el('path', { d: `M${cx} ${cy - 40} V${cy - 24} M${cx} ${cy + 24} V${cy + 40}` }, z)
+  el('ellipse', { cx: cx - 22, cy: cy - 30, rx: 22, ry: 10, fill: '#fff', opacity: 0.35, transform: `rotate(-30 ${cx - 22} ${cy - 30})`, filter: 'url(#blur2)' }, coin)
+
+  // Nested shells: the vault's layers, each a smaller cube around the coin.
+  for (const k of [0.72, 0.5]) {
+    const a = A * k
+    const S = iso(a, [cx, cy + a])
+    const g = el('g', { fill: 'none', stroke: '#f2b63a', 'stroke-opacity': 0.22 + (1 - k) * 0.25, 'stroke-width': 1.3 }, cube)
+    el('polygon', { points: pts(S.F, S.FL, S.FLU, S.FU) }, g)
+    el('polygon', { points: pts(S.F, S.FR, S.FRU, S.FU) }, g)
+    el('polygon', { points: pts(S.FU, S.FRU, S.FRLU, S.FLU) }, g)
+  }
+  // The glass faces and their gold edges.
+  el('polygon', { points: pts(C.F, C.FL, C.FLU, C.FU), fill: 'url(#faceL)' }, cube)
+  el('polygon', { points: pts(C.F, C.FR, C.FRU, C.FU), fill: 'url(#faceR)' }, cube)
+  el('polygon', { points: pts(C.FU, C.FRU, C.FRLU, C.FLU), fill: 'url(#faceT)' }, cube)
+  const edges = el('g', { stroke: 'url(#edge)', 'stroke-width': 2.4, fill: 'none', 'stroke-linejoin': 'round' }, cube)
+  el('polygon', { points: pts(C.F, C.FL, C.FLU, C.FU) }, edges)
+  el('polygon', { points: pts(C.F, C.FR, C.FRU, C.FU) }, edges)
+  el('polygon', { points: pts(C.FU, C.FRU, C.FRLU, C.FLU) }, edges)
+  // A highlight down the front edge and across the top.
+  el('line', { x1: C.F[0], y1: C.F[1], x2: C.FU[0], y2: C.FU[1], stroke: '#fff6dd', 'stroke-width': 3, 'stroke-opacity': 0.8 }, cube)
+  el('line', { x1: C.FLU[0], y1: C.FLU[1], x2: C.FRLU[0], y2: C.FRLU[1], stroke: '#fff6dd', 'stroke-width': 2, 'stroke-opacity': 0.5 }, cube)
+  // Bolts on each face, like a vault door.
+  const bolt = (p) => { el('circle', { cx: p[0], cy: p[1], r: 5.5, fill: '#f2b63a' }, cube); el('circle', { cx: p[0], cy: p[1], r: 5.5, fill: 'none', stroke: '#6e4407', 'stroke-width': 1.5 }, cube) }
+  const mix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]
+  for (const [p, q, r, s] of [[C.F, C.FL, C.FLU, C.FU], [C.F, C.FR, C.FRU, C.FU]]) {
+    for (const [u, v] of [[0.12, 0.12], [0.88, 0.12], [0.12, 0.88], [0.88, 0.88]]) bolt(mix(mix(p, q, u), mix(s, r, u), v))
+  }
+  // The coin sits in front of every line: the one thing the vault holds.
+  cube.appendChild(coin)
+
+  // ---------------------------------------------------------------- the four keys, on an orbit
+  const rx = 420, ry = 120, ocy = cy + 40
+  const ringPath = (from, to) => {
+    const a0 = from * Math.PI / 180, a1 = to * Math.PI / 180
+    const p0 = [cx + rx * Math.cos(a0), ocy + ry * Math.sin(a0)], p1 = [cx + rx * Math.cos(a1), ocy + ry * Math.sin(a1)]
+    return `M${p0} A${rx} ${ry} 0 ${Math.abs(to - from) > 180 ? 1 : 0} 1 ${p1}`
+  }
+  el('path', { d: ringPath(180, 360), fill: 'none', stroke: '#f2b63a', 'stroke-opacity': 0.25, 'stroke-width': 1.5, 'stroke-dasharray': '2 7' }, $('ringBack'))
+  el('path', { d: ringPath(0, 180), fill: 'none', stroke: '#f2b63a', 'stroke-opacity': 0.55, 'stroke-width': 1.8 }, $('ringFront'))
+  el('ellipse', { cx, cy: ocy, rx: rx + 60, ry: ry + 18, fill: 'none', stroke: '#f2b63a', 'stroke-opacity': 0.08, 'stroke-width': 1 }, $('ringBack'))
+  // Three keys lit (any three move the vault), one dim.
+  const keys = [[205, true], [335, true], [30, true], [150, false]]
+  for (const [deg, lit] of keys) {
+    const a = deg * Math.PI / 180
+    const x = cx + rx * Math.cos(a), y = ocy + ry * Math.sin(a)
+    const g = el('g', {}, $('nodes'))
+    if (lit) el('circle', { cx: x, cy: y, r: 46, fill: 'url(#glow)', opacity: 0.8 }, g)
+    el('circle', { cx: x, cy: y, r: 27, fill: lit ? '#1b150d' : '#12100c', stroke: lit ? '#f2b63a' : '#4a4235', 'stroke-width': 2 }, g)
+    // A key: a ring and a shaft with two teeth.
+    const kc = lit ? '#f2b63a' : '#5c5446'
+    el('circle', { cx: x - 7, cy: y, r: 6.5, fill: 'none', stroke: kc, 'stroke-width': 2.6 }, g)
+    el('path', { d: `M${x - 0.5} ${y} H${x + 13} M${x + 8} ${y} V${y + 6} M${x + 13} ${y} V${y + 5}`, stroke: kc, 'stroke-width': 2.6, fill: 'none', 'stroke-linecap': 'round' }, g)
+    // A thread from each lit key to the vault.
+    if (lit) el('line', { x1: x, y1: y, x2: cx, y2: cy, stroke: '#f2b63a', 'stroke-opacity': 0.18, 'stroke-width': 1, 'stroke-dasharray': '3 6' }, $('ringBack'))
+  }
+
+  // ---------------------------------------------------------------- dust and sparks
+  for (let i = 0; i < 140; i++) {
+    const x = 560 + rnd() * 960, y = 60 + rnd() * 560
+    const d = Math.hypot((x - cx) / 1.6, y - cy)
+    const s = 1 + rnd() * 2.6
+    el('rect', { x, y, width: s, height: s, fill: rnd() > 0.35 ? '#f2b63a' : '#fff1d0', opacity: Math.max(0.05, 0.55 - d / 900) * (0.4 + rnd() * 0.6) }, $('dust'))
+  }
+  for (let i = 0; i < 18; i++) {
+    const x = cx - 200 + rnd() * 400, y = cy - 330 + rnd() * 140
+    el('rect', { x, y, width: 3, height: 3, fill: '#ffe3a0', opacity: 0.35 + rnd() * 0.5 }, $('sparks'))
+  }
+</script>
+</body>
+</html>

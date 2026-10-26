@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1500, initial-scale=1">
+<title>Hypothec banner</title>
+<!-- Photo: Unsplash, "A heavy steel bank vault door with a large circular locking wheel"
+     (unsplash.com/photos/3wPJxh-piRw), free under the Unsplash License. -->
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+  html, body { margin: 0; background: #070605; }
+  /* X header: 1500 x 500. The profile picture covers the bottom left, so the art sits centre left. */
+  .frame { position: relative; width: 1500px; height: 500px; overflow: hidden; background: #070605; font-family: Inter, sans-serif; isolation: isolate; }
+  .photo { position: absolute; left: 160px; top: -450px; width: 1032px; height: 1032px; background: url(src/photo-1582139329536-e7284fece509.jpg) center / cover; filter: grayscale(1) contrast(1.25) brightness(0.6); }
+  .tint { position: absolute; inset: 0; background: linear-gradient(110deg, #3a2608 0%, #b07a1c 50%, #f2b63a 100%); mix-blend-mode: color; opacity: 0.7; }
+  .warm { position: absolute; inset: 0; background: radial-gradient(360px 260px at 600px 250px, rgba(242, 182, 58, 0.32), transparent 70%); mix-blend-mode: screen; }
+  .shade { position: absolute; inset: 0; background:
+      linear-gradient(90deg, #070605 0%, rgba(7, 6, 5, 0.75) 12%, rgba(7, 6, 5, 0.1) 30%, rgba(7, 6, 5, 0) 44%, rgba(7, 6, 5, 0.55) 60%, #070605 74%),
+      linear-gradient(0deg, rgba(7, 6, 5, 0.75) 0%, transparent 30%),
+      linear-gradient(180deg, rgba(7, 6, 5, 0.6) 0%, transparent 25%); }
+  .grain { position: absolute; inset: 0; opacity: 0.08; mix-blend-mode: overlay; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23n)'/%3E%3C/svg%3E"); }
+  .coin { position: absolute; left: 0; top: 0; }
+  .words { position: absolute; right: 110px; top: 50%; transform: translateY(-50%); text-align: right; }
+  .kicker { font-family: 'JetBrains Mono', monospace; font-size: 14px; letter-spacing: 3.5px; color: #a3957f; text-transform: uppercase; margin-bottom: 4px; }
+  .big { font-family: 'Instrument Serif', serif; font-style: italic; font-size: 172px; line-height: 0.95; letter-spacing: -2px; color: #f2b63a; }
+  .line { margin-top: 14px; font-size: 19px; color: #d6ccba; letter-spacing: 0.1px; }
+  .line b { color: #f5efe4; font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="frame">
+  <div class="photo"></div>
+  <div class="tint"></div>
+  <div class="warm"></div>
+  <svg class="coin" width="1500" height="500" viewBox="0 0 1500 500" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <radialGradient id="face" cx="36%" cy="30%" r="80%">
+        <stop offset="0" stop-color="#fff0c2"/><stop offset="0.35" stop-color="#f4c158"/><stop offset="0.75" stop-color="#c7891c"/><stop offset="1" stop-color="#7a4c0a"/>
+      </radialGradient>
+      <linearGradient id="bevel" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#ffe39a"/><stop offset="0.5" stop-color="#a86b12"/><stop offset="1" stop-color="#4d3006"/>
+      </linearGradient>
+      <radialGradient id="halo" cx="50%" cy="50%" r="50%">
+        <stop offset="0" stop-color="#f2b63a" stop-opacity="0.5"/><stop offset="1" stop-color="#f2b63a" stop-opacity="0"/>
+      </radialGradient>
+      <filter id="drop" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="4" dy="10" stdDeviation="10" flood-color="#000" flood-opacity="0.7"/></filter>
+    </defs>
+    <g id="c"></g>
+  </svg>
+  <div class="shade"></div>
+  <div class="grain"></div>
+  <div class="words">
+    <div class="kicker">Hypothec · on Zcash</div>
+    <div class="big">Shielded.</div>
+    <div class="line">Private credit against <b>shielded ZEC</b></div>
+  </div>
+</div>
+<script>
+  // The coin on the vault's dial (the dial of the photo sits at 600, 250 at this scale).
+  const NS = 'http://www.w3.org/2000/svg', g = document.getElementById('c')
+  const el = (t, a) => { const e = document.createElementNS(NS, t); for (const k in a) e.setAttribute(k, a[k]); g.appendChild(e); return e }
+  const cx = 600, cy = 250, R = 104, k = R / 150
+  el('circle', { cx, cy, r: R * 1.7, fill: 'url(#halo)' })
+  el('circle', { cx, cy, r: R * 1.08, fill: 'url(#bevel)' })
+  el('circle', { cx, cy, r: R, fill: 'url(#face)' })
+  el('circle', { cx, cy, r: R, fill: 'none', stroke: '#3d2504', 'stroke-width': 4, opacity: 0.55 })
+  el('circle', { cx, cy, r: R * 0.93, fill: 'none', stroke: '#7a4c0a', 'stroke-width': 1.5, opacity: 0.6 })
+  for (let i = 0, r = 14; r < R * 0.92; i++, r += 4) el('circle', { cx, cy, r, fill: 'none', stroke: i % 2 ? '#fff6dc' : '#6b4208', 'stroke-width': 0.7, opacity: i % 2 ? 0.1 : 0.08 })
+  el('circle', { cx, cy, r: R * 0.75, fill: 'none', stroke: '#fff3cf', 'stroke-width': 1.2, opacity: 0.5 })
+  const z = (dx, dy, color, op) => el('path', {
+    d: `M${cx - 36 * k} ${cy - 38 * k} H${cx + 36 * k} L${cx - 36 * k} ${cy + 38 * k} H${cx + 36 * k} M${cx} ${cy - 62 * k} V${cy - 38 * k} M${cx} ${cy + 38 * k} V${cy + 62 * k}`,
+    stroke: color, 'stroke-width': 15 * k, fill: 'none', 'stroke-linecap': 'square', opacity: op, transform: `translate(${dx} ${dy})`,
+  })
+  z(1.2, 1.6, '#fff4d2', 0.45)
+  z(0, 0, '#5a3605', 1)
+  el('ellipse', { cx: cx - 34, cy: cy - 48, rx: 48, ry: 18, fill: '#fff', opacity: 0.18, transform: `rotate(-32 ${cx - 34} ${cy - 48})` })
+</script>
+</body>
+</html>

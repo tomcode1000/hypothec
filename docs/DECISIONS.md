@@ -225,6 +225,22 @@ line was too close to another product's wording and is gone. The share text, tit
 overview, who-sees-what table, disclosures (test proving keys) and footer name both loan
 chains and the private dollar side.
 
+**D29. The hosted demo: one chain on a free plan, visitors bring their own gas (25 Oct,
+user).** Render's blueprint (`render.yaml`, a paid disk) asked for a card, so the live site
+is a Render free web service at hypothec.onrender.com, built from `deploy/hf/Dockerfile`
+with `deploy/hf` as the context. The free plan's 512 MB holds one loan chain, so it runs
+Robinhood Chain testnet only (`HYPOTHEC_CHAIN=robinhood`, `HYPOTHEC_SECOND_CHAIN=none`,
+`NODE_OPTIONS=--max-old-space-size=192`); Base Sepolia stays in the code and runs locally.
+The free plan has no disk either: the Zcash test wallet's key files come from a secret
+(`TESTNET_ZEC_WALLET_B64`) and the wallet rescans the chain on each start
+(`deploy/start.sh`). `.github/workflows/keepalive.yml` pings the site so it does not
+sleep; `deploy/vercel.mjs` is an optional front end that forwards `/api` to it.
+- Anyone can test with their own wallet, not only the test wallets: the site links the
+  chain's faucet for test ETH and mints Test USDC from the visitor's own wallet. The demo
+  never sends visitors ETH from its wallets (user: every action stays the visitor's own,
+  and a house faucet runs dry). The faucet link is a short labelled link, not a pasted URL.
+- The walkthrough for testers is [TESTNET-GUIDE.md](TESTNET-GUIDE.md).
+
 **D10. Desk, not pool (8 Oct; decided 14 Oct with D14).** The borrower app shows
 the desk like a pool card (available USDC, rate, term, start LTV, price, Borrow), but the
 money is one lender's. A depositor pool would need someone to hold the lender's key

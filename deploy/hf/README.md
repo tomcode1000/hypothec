@@ -11,6 +11,6 @@ short_description: Private credit against shielded ZEC (testnet)
 
 # Hypothec
 
-Private credit against shielded ZEC: the hosted testnet demo (Zcash testnet with Base Sepolia
-and Robinhood Chain testnet, test coins only). Source, design and decisions:
+Private credit against shielded ZEC: the hosted testnet demo (Zcash testnet with Robinhood
+Chain testnet, test coins only), live at https://hypothec.onrender.com. Source, design and decisions:
 https://github.com/tomcode1000/hypothec

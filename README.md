@@ -7,8 +7,9 @@ borrower or the lender appears on the loan chain.
 
 Built for the ZECATHON, Private Markets track.
 
-- **Live demo:** the hosted site (Zcash testnet with Base Sepolia or Robinhood Chain
-  testnet, test coins only). The link is in the repository's About panel.
+- **Live demo:** [hypothec.onrender.com](https://hypothec.onrender.com) (Zcash testnet with
+  Robinhood Chain testnet, test coins only)
+- **Try it yourself, step by step (wallets, test coins, borrow, repay, lend):** [docs/TESTNET-GUIDE.md](docs/TESTNET-GUIDE.md)
 - **How it works, the maths, the trust model and the production design:** [docs/DESIGN.md](docs/DESIGN.md)
 - **Every design decision, dated:** [docs/DECISIONS.md](docs/DECISIONS.md)
 - **What the guardians sign and refuse:** [docs/GUARDIANS.txt](docs/GUARDIANS.txt)
@@ -30,8 +31,8 @@ lender, or unshield them into a public market. Hypothec is the third option.
 
 ## Check it in five minutes
 
-1. **Open the site, Markets.** Live desks, rates and the guardians online. The switch
-   beside the wallet picks the loan chain: Base Sepolia or Robinhood Chain testnet.
+1. **Open the site, Markets.** Live desks, rates and the guardians online, on Robinhood
+   Chain testnet. (Run locally, a switch beside the wallet also offers Base Sepolia.)
 2. **Click Borrow on a desk.** The order ticket: the amount, which desks fill it, the
    Private switch, and a term sheet with what you lock and what you repay.
 3. **Guardians.** Every check each guardian makes, live, and every decision it signed
@@ -156,20 +157,27 @@ tens of minutes.
 
 ## The hosted demo
 
-One container (`deploy/Dockerfile`) runs the testnet system: the relay, the party host,
-the test wallet, the loanbook and both guardians, and the website with the desk agents.
-Every push to `main` runs the tests, builds the image and deploys it
-(`.github/workflows/deploy.yml`, `render.yaml`).
+One container runs the testnet system: the relay, the party host, the test wallet, the
+loanbook and both guardians, and the website with the desk agents. The live site,
+[hypothec.onrender.com](https://hypothec.onrender.com), is a Render free web service built
+from `deploy/hf/Dockerfile` (context `deploy/hf`) and runs **Robinhood Chain testnet only**
+(`HYPOTHEC_CHAIN=robinhood`, `HYPOTHEC_SECOND_CHAIN=none`), so it fits the free plan's
+memory. `.github/workflows/keepalive.yml` pings it so it does not sleep, and
+`deploy/vercel.mjs` is an optional front end that forwards to it. Visitors get test ETH
+from the chain's faucet and mint Test USDC with their own wallet; the demo never pays gas
+for them. Details: D29 in [docs/DECISIONS.md](docs/DECISIONS.md).
 
-The container runs two loan chains, Base Sepolia (USDC) and Robinhood Chain testnet (Test
-USDC anyone can mint), each with its own loanbook, guardians and desks; the switch beside the
-wallet picks one (`HYPOTHEC_SECOND_CHAIN=none` turns the second off).
+The same image can run two loan chains, Base Sepolia (USDC) and Robinhood Chain testnet
+(Test USDC anyone can mint), each with its own loanbook, guardians and desks, with a switch
+beside the wallet (`deploy/Dockerfile`, `render.yaml` and `.github/workflows/deploy.yml`
+deploy that version on a paid plan).
 
 Hosting the guardians next to the website is a **demo** arrangement. In production each
 guardian runs at its own operator (see below).
 
-Secrets are set on the host, never in the repository: `TESTNET_WALLETS_JSON` (test keys)
-and `HYPOTHEC_DEMO_TOKEN` (unlocks the demo price controls, `?demo=<token>` on the
+Secrets are set on the host, never in the repository: `TESTNET_WALLETS_JSON` (test keys),
+`TESTNET_ZEC_WALLET_B64` (the Zcash test wallet's key files, since the free plan has no
+disk) and `HYPOTHEC_DEMO_TOKEN` (unlocks the demo price controls, `?demo=<token>` on the
 Lending tab; without it they are off, so no visitor can crash the price).
 
 ## Run a guardian (operators)

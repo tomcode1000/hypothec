@@ -24,7 +24,7 @@ Test coins only, no real money.
 4. **Settings** → **Server** → tap the list button → choose `https://testnet.zec.rocks`
 5. Now create your account: **New account** → back up the seed phrase → copy your shielded address (starts with `utest1`)
 
-If your address starts with `u1` instead, you're on mainnet: go back to step 2.
+If your address starts with `u1` instead, you're on mainnet: go back to step 2. An account you already made on mainnet does no harm. It stays in its own database, and the testnet database starts empty.
 
 ---
 

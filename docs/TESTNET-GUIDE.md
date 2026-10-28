@@ -16,7 +16,15 @@ Test coins only, no real money.
 
 **Zcash testnet wallet** (holds the ZEC you lock)
 
-- **Zkool:** [github.com/hhanh00/zkool2](https://github.com/hhanh00/zkool2) → download for your system → **New account** → choose **Testnet** → copy your shielded address (starts with `utest1`)
+**Zkool** ([download](https://github.com/hhanh00/zkool2), [docs](https://hhanh00.github.io/zkool2/)). Switch to testnet **before** creating any account: Zkool opens on mainnet, and an account made there won't work here.
+
+1. Install and open Zkool → **don't create an account yet**
+2. **Settings** → folder icon (**Open Database Manager**) → close and reopen Zkool
+3. Database Manager → **Create a new database** → give it a name containing `testnet` (e.g. `testnet`) → open it
+4. **Settings** → **Server** → tap the list button → choose `https://testnet.zec.rocks`
+5. Now create your account: **New account** → back up the seed phrase → copy your shielded address (starts with `utest1`)
+
+If your address starts with `u1` instead, you're on mainnet: go back to step 2.
 
 ---
 
